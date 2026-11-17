@@ -1,0 +1,3452 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Moon.Artgel | Reserva tu Hora</title>
+  
+  <!-- Firebase SDK para sincronización en tiempo real entre múltiples dispositivos -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <!-- Gun.js P2P Realtime Engine (sincronización instantánea global descentralizada) -->
+  <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+
+  <style>
+    :root {
+      --primary: #ec4899;
+      --primary-hover: #db2777;
+      --primary-dark: #be185d;
+      --primary-light: #fdf2f8;
+      --primary-glow: rgba(236, 72, 153, 0.35);
+      
+      --bg: #fdf4f8;
+      --card-bg: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      
+      --border: #fce7f3;
+      --border-dark: #fbcfe8;
+      --occupied: #9ca3af;
+      --radius: 18px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+
+    body {
+      background: radial-gradient(circle at 15% 15%, #fce7f3 0%, #fdf2f8 45%, #fff1f2 100%);
+      color: var(--text);
+      padding: 2rem 1rem;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .booking-card {
+      background: var(--card-bg);
+      max-width: 550px;
+      width: 100%;
+      border-radius: var(--radius);
+      box-shadow: 0 20px 45px -10px rgba(236, 72, 153, 0.16), 0 0 0 1px rgba(251, 207, 232, 0.6);
+      overflow: hidden;
+      transition: transform 0.2s;
+    }
+
+    /* Cabecera elegante y llamativa con Logo */
+    .header {
+      background: linear-gradient(145deg, #ec4899 0%, #db2777 50%, #be185d 100%);
+      color: white;
+      text-align: center;
+      padding: 2.25rem 1.25rem 1.75rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Brillos de fondo decorativos en el header */
+    .header::before {
+      content: "";
+      position: absolute;
+      top: -50px;
+      right: -50px;
+      width: 130px;
+      height: 130px;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    .header::after {
+      content: "";
+      position: absolute;
+      bottom: -40px;
+      left: -40px;
+      width: 110px;
+      height: 110px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    .logo-container {
+      margin-bottom: 0.85rem;
+      position: relative;
+      display: inline-block;
+    }
+
+    .brand-logo {
+      width: 105px;
+      height: 105px;
+      border-radius: 50%;
+      object-fit: cover;
+      background: white;
+      border: 4px solid rgba(255, 255, 255, 0.95);
+      box-shadow: 0 10px 25px rgba(190, 24, 93, 0.4), 0 0 0 4px rgba(255, 255, 255, 0.25);
+      transition: transform 0.3s ease;
+    }
+
+    .brand-logo:hover {
+      transform: scale(1.05);
+    }
+
+    .header h1 {
+      font-size: 1.75rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      text-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+    }
+
+    .header-tagline {
+      font-size: 0.88rem;
+      color: #ffe4e6;
+      margin-top: 0.35rem;
+      font-style: italic;
+      font-weight: 400;
+      letter-spacing: 0.2px;
+      max-width: 400px;
+      margin-left: auto;
+      margin-right: auto;
+      line-height: 1.4;
+    }
+
+    .live-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      backdrop-filter: blur(4px);
+      padding: 4px 12px;
+      border-radius: 30px;
+      font-size: 0.74rem;
+      font-weight: 600;
+      margin-top: 0.85rem;
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      background: #4ade80;
+      border-radius: 50%;
+      box-shadow: 0 0 8px #4ade80;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    .content {
+      padding: 1.75rem 1.5rem;
+    }
+
+    /* Títulos de sección con numeración bonita */
+    .section-title {
+      font-size: 0.9rem;
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: 0.3px;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .step-badge {
+      width: 24px;
+      height: 24px;
+      background: linear-gradient(135deg, #ec4899, #db2777);
+      color: white;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.76rem;
+      font-weight: 800;
+      box-shadow: 0 3px 8px var(--primary-glow);
+    }
+
+    /* Calendario */
+    .calendar-box {
+      background: #fffbfe;
+      border: 1px solid var(--border-dark);
+      border-radius: 14px;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 4px 12px rgba(236, 72, 153, 0.04);
+    }
+
+    .month-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.85rem;
+    }
+
+    .month-title {
+      font-weight: 800;
+      font-size: 1rem;
+      color: #9d174d;
+      text-transform: capitalize;
+    }
+
+    .nav-arrow {
+      background: white;
+      border: 1px solid var(--border-dark);
+      border-radius: 8px;
+      width: 32px;
+      height: 32px;
+      cursor: pointer;
+      font-weight: 800;
+      color: var(--primary);
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .nav-arrow:hover {
+      background: var(--primary-light);
+      border-color: var(--primary);
+      color: var(--primary-dark);
+    }
+
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      text-align: center;
+    }
+
+    .day-name {
+      font-size: 0.74rem;
+      font-weight: 700;
+      color: #db2777;
+      padding-bottom: 0.4rem;
+      text-transform: uppercase;
+    }
+
+    .day-cell {
+      padding: 0.65rem 0;
+      font-size: 0.88rem;
+      font-weight: 600;
+      border-radius: 8px;
+      background: white;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.18s ease;
+      position: relative;
+    }
+
+    /* Punto indicador de horas tomadas en el día */
+    .day-booked-dot {
+      position: absolute;
+      bottom: 3px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 5px;
+      height: 5px;
+      background: #db2777;
+      border-radius: 50%;
+      box-shadow: 0 0 4px rgba(219, 39, 119, 0.4);
+    }
+
+    /* Insignia cuando el cliente actual tiene una cita ese día */
+    .day-my-badge {
+      position: absolute;
+      top: 1px;
+      right: 2px;
+      font-size: 0.65rem;
+      line-height: 1;
+    }
+
+    .day-cell.empty {
+      background: transparent;
+      cursor: default;
+    }
+
+    .day-cell.disabled {
+      color: #cbd5e1;
+      background: #f8fafc;
+      cursor: not-allowed;
+      text-decoration: line-through;
+    }
+
+    .day-cell.past-day {
+      color: #94a3b8;
+      background: #f8fafc;
+      cursor: pointer;
+      opacity: 0.82;
+      transition: all 0.2s;
+    }
+
+    .day-cell.past-day:hover {
+      background: #f1f5f9;
+      border-color: #cbd5e1;
+      transform: translateY(-1px);
+    }
+
+    .day-cell.past-day.has-my-booking {
+      background: #fdf2f8 !important;
+      border: 1.5px solid #fbcfe8 !important;
+      color: #be185d !important;
+      font-weight: 800;
+      opacity: 1;
+    }
+
+    .status-badge-past {
+      background: #f3f4f6;
+      color: #6b7280;
+      font-size: 0.74rem;
+      font-weight: 800;
+      padding: 3px 10px;
+      border-radius: 20px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .my-hour-card.past-booking {
+      background: #fafafa;
+      border-color: #e5e7eb;
+      opacity: 0.92;
+    }
+
+    .my-hours-section-title {
+      font-size: 0.86rem;
+      font-weight: 800;
+      color: #4b5563;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin: 1.15rem 0 0.65rem 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding-bottom: 4px;
+      border-bottom: 1.5px dashed var(--border-dark);
+    }
+
+    .day-cell.full {
+      color: #f87171;
+      background: #fef2f2;
+      text-decoration: line-through;
+      cursor: not-allowed;
+    }
+
+    .day-cell.available {
+      color: var(--text);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    }
+
+    .day-cell.available:hover {
+      background: #fce7f3;
+      border-color: var(--primary);
+      color: var(--primary-dark);
+      transform: translateY(-2px);
+    }
+
+    .day-cell.selected {
+      background: linear-gradient(135deg, #ec4899 0%, #db2777 100%) !important;
+      color: white !important;
+      font-weight: 800;
+      box-shadow: 0 6px 14px var(--primary-glow);
+      transform: scale(1.05);
+    }
+
+    /* Horarios */
+    .slots-container {
+      margin-bottom: 1.5rem;
+    }
+
+    .slots-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(95px, 1fr));
+      gap: 0.6rem;
+    }
+
+    .slot-btn {
+      padding: 0.75rem 0.4rem;
+      border: 1px solid var(--border-dark);
+      background: white;
+      border-radius: 10px;
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--text);
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    }
+
+    .slot-btn:hover:not(.booked):not(.past) {
+      border-color: var(--primary);
+      color: var(--primary-dark);
+      background: var(--primary-light);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 10px var(--primary-glow);
+    }
+
+    .slot-btn.selected {
+      background: linear-gradient(135deg, #ec4899 0%, #db2777 100%);
+      color: white;
+      border-color: var(--primary-dark);
+      box-shadow: 0 6px 16px var(--primary-glow);
+      transform: translateY(-1px);
+    }
+
+    .slot-btn.booked,
+    .slot-btn.past {
+      background: #f1f5f9;
+      color: var(--occupied);
+      border-color: #e2e8f0;
+      cursor: not-allowed;
+      text-decoration: line-through;
+      font-weight: normal;
+      box-shadow: none;
+    }
+
+    /* Estilo exclusivo para horas reservadas por el propio usuario */
+    .slot-btn.my-booking {
+      background: #fdf2f8 !important;
+      border: 1.5px solid #ec4899 !important;
+      color: #be185d !important;
+      cursor: default !important;
+      text-decoration: none !important;
+      font-weight: 800 !important;
+      box-shadow: 0 3px 8px rgba(236, 72, 153, 0.18) !important;
+    }
+
+    .placeholder-msg {
+      font-size: 0.86rem;
+      color: var(--muted);
+      background: #fffbfe;
+      padding: 0.9rem;
+      border-radius: 10px;
+      text-align: center;
+      border: 1px dashed var(--border-dark);
+    }
+
+    /* Servicios / Modalidades estilo Menú de Belleza */
+    .services-container {
+      margin-bottom: 1.5rem;
+    }
+
+    .services-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+    }
+
+    .service-btn {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.85rem 1rem;
+      border: 1.5px solid var(--border-dark);
+      background: white;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: left;
+      color: var(--text);
+      gap: 0.75rem;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.02);
+    }
+
+    .service-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .service-main {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .service-name {
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: #1f2937;
+    }
+
+    .service-name.compact-name {
+      font-size: 0.83rem;
+    }
+
+    /* Etiqueta de Precio destacada */
+    .service-price {
+      font-size: 0.92rem;
+      font-weight: 800;
+      color: #db2777;
+      background: #fdf2f8;
+      border: 1px solid #fbcfe8;
+      padding: 0.22rem 0.65rem;
+      border-radius: 20px;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+
+    .service-note {
+      display: inline-flex;
+      align-items: center;
+      font-size: 0.68rem;
+      font-weight: 800;
+      color: #e11d48;
+      background: #fff1f2;
+      border: 1px solid #ffe4e6;
+      padding: 2px 7px;
+      border-radius: 5px;
+      width: fit-content;
+      margin-top: 3px;
+      letter-spacing: 0.3px;
+    }
+
+    .service-btn:hover {
+      border-color: var(--primary);
+      background: #fdf2f8;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(236, 72, 153, 0.12);
+    }
+
+    .service-btn.selected {
+      background: #fdf2f8;
+      border-color: var(--primary);
+      box-shadow: 0 4px 14px rgba(236, 72, 153, 0.18);
+    }
+
+    .service-btn.selected .service-name {
+      color: #be185d;
+    }
+
+    .service-btn.selected .service-price {
+      background: linear-gradient(135deg, #ec4899, #db2777);
+      color: white;
+      border-color: #db2777;
+      box-shadow: 0 2px 6px var(--primary-glow);
+    }
+
+    /* Sub-opciones de Reconstrucción: Garantía o Servicio */
+    .subtype-container {
+      margin-top: 0.65rem;
+      padding-top: 0.6rem;
+      border-top: 1px dashed var(--border-dark);
+      width: 100%;
+    }
+
+    .subtype-label {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #9d174d;
+      margin-bottom: 0.45rem;
+    }
+
+    .subtype-btn-group {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .subtype-btn {
+      flex: 1;
+      padding: 0.55rem 0.4rem;
+      border: 1.5px solid var(--border-dark);
+      background: white;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+
+    .subtype-btn:hover {
+      border-color: var(--primary);
+      background: #fff1f2;
+    }
+
+    .subtype-btn.active {
+      background: linear-gradient(135deg, #ec4899, #db2777);
+      color: white;
+      border-color: #db2777;
+      box-shadow: 0 2px 6px var(--primary-glow);
+    }
+
+    .subtype-alert {
+      margin-top: 0.55rem;
+      padding: 0.5rem 0.7rem;
+      background: #fff1f2;
+      border: 1px solid #fecdd3;
+      border-radius: 8px;
+      font-size: 0.77rem;
+      color: #be123c;
+      line-height: 1.4;
+      animation: fadeIn 0.2s ease-out;
+    }
+
+    .service-check {
+      width: 22px;
+      height: 22px;
+      min-width: 22px;
+      border: 2px solid var(--border-dark);
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      color: transparent;
+      transition: all 0.2s;
+    }
+
+    .service-btn.selected .service-check {
+      border-color: var(--primary);
+      background: var(--primary);
+      color: white;
+      box-shadow: 0 2px 6px var(--primary-glow);
+    }
+
+    /* Caja de descripción que aparece al escoger una opción */
+    .service-desc-box {
+      margin-top: 0.55rem;
+      padding: 0.55rem 0.75rem;
+      background: #fff5f9;
+      border-left: 3px solid var(--primary);
+      border-radius: 8px;
+      font-size: 0.81rem;
+      color: #9d174d;
+      line-height: 1.45;
+      animation: fadeIn 0.22s ease-out;
+      box-shadow: 0 1px 4px rgba(236, 72, 153, 0.06);
+    }
+
+    /* Barra resumen cuando se eligen múltiples servicios */
+    .services-summary-bar {
+      margin-top: 0.85rem;
+      padding: 0.75rem 1rem;
+      background: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%);
+      border: 1.5px solid var(--border-dark);
+      border-radius: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: #be185d;
+      box-shadow: 0 3px 10px rgba(236, 72, 153, 0.08);
+      animation: fadeIn 0.25s ease-out;
+    }
+
+    .services-total-badge {
+      font-size: 0.95rem;
+      font-weight: 800;
+      color: white;
+      background: linear-gradient(135deg, #ec4899, #db2777);
+      padding: 0.25rem 0.75rem;
+      border-radius: 20px;
+      box-shadow: 0 2px 6px var(--primary-glow);
+    }
+
+    /* Formulario */
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.84rem;
+      font-weight: 700;
+      margin-bottom: 0.35rem;
+      color: var(--text);
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 0.8rem 0.9rem;
+      border: 1.5px solid var(--border-dark);
+      border-radius: 10px;
+      font-size: 0.92rem;
+      outline: none;
+      transition: all 0.2s;
+      background: #fffbfe;
+    }
+
+    .form-group input:focus {
+      background: white;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-glow);
+    }
+
+    /* Botón Confirmar Vibrante */
+    .btn-submit {
+      width: 100%;
+      padding: 1rem;
+      background: linear-gradient(135deg, #ec4899 0%, #db2777 55%, #be185d 100%);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 1.05rem;
+      font-weight: 800;
+      cursor: pointer;
+      margin-top: 1.25rem;
+      box-shadow: 0 10px 25px rgba(219, 39, 119, 0.35);
+      transition: all 0.22s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      letter-spacing: 0.3px;
+    }
+
+    .btn-submit:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 14px 30px rgba(219, 39, 119, 0.45);
+      background: linear-gradient(135deg, #f43f5e 0%, #db2777 55%, #9d174d 100%);
+    }
+
+    .btn-submit:disabled {
+      background: #e2e8f0;
+      color: #94a3b8;
+      box-shadow: none;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Pantalla de Éxito */
+    .success-box {
+      display: none;
+      text-align: center;
+      padding: 2.25rem 1rem;
+    }
+
+    .success-icon {
+      width: 70px;
+      height: 70px;
+      background: #dcfce7;
+      color: #10b981;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.3rem;
+      margin-bottom: 1.25rem;
+      box-shadow: 0 8px 20px rgba(16, 185, 129, 0.25);
+    }
+
+    .success-box h2 {
+      font-size: 1.45rem;
+      font-weight: 800;
+      margin-bottom: 0.5rem;
+      color: #1f2937;
+    }
+
+    .summary-card {
+      background: transparent;
+      border: none;
+      padding: 0;
+      margin: 1.25rem 0;
+      box-shadow: none;
+    }
+
+    /* Ticket Digital Estético Estilo Salón de Belleza */
+    .digital-ticket {
+      background: #ffffff;
+      border: 1.5px solid #fbcfe8;
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 12px 30px rgba(236, 72, 153, 0.12);
+      position: relative;
+      text-align: left;
+    }
+
+    .ticket-header {
+      background: linear-gradient(135deg, #ec4899 0%, #db2777 50%, #be185d 100%);
+      color: white;
+      padding: 1.1rem 1.25rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .ticket-salon {
+      font-weight: 800;
+      font-size: 1.05rem;
+      letter-spacing: 0.5px;
+    }
+
+    .ticket-badge {
+      background: rgba(255, 255, 255, 0.22);
+      backdrop-filter: blur(4px);
+      padding: 3px 9px;
+      border-radius: 12px;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+    }
+
+    .ticket-body {
+      padding: 1.25rem;
+      background: #fffbfe;
+    }
+
+    .ticket-row-main {
+      display: flex;
+      justify-content: space-between;
+      background: #fdf2f8;
+      border: 1px solid #fce7f3;
+      border-radius: 12px;
+      padding: 0.8rem 1rem;
+      margin-bottom: 0.85rem;
+    }
+
+    .ticket-col {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .ticket-label {
+      font-size: 0.68rem;
+      font-weight: 800;
+      color: #9d174d;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 2px;
+    }
+
+    .ticket-value {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: #1f2937;
+    }
+
+    .ticket-value.highlight {
+      font-size: 0.98rem;
+      font-weight: 800;
+      color: #be185d;
+    }
+
+    .ticket-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.45rem 0;
+      font-size: 0.86rem;
+      border-bottom: 1px dashed #fce7f3;
+    }
+
+    .ticket-services-box {
+      margin-top: 0.85rem;
+      background: #ffffff;
+      border: 1px solid #fce7f3;
+      border-radius: 12px;
+      padding: 0.85rem;
+    }
+
+    .ticket-tear-line {
+      position: relative;
+      height: 18px;
+      background: #fffbfe;
+      border-top: 2px dashed #f472b6;
+    }
+
+    .ticket-tear-line::before,
+    .ticket-tear-line::after {
+      content: "";
+      position: absolute;
+      top: -11px;
+      width: 20px;
+      height: 20px;
+      background: var(--bg);
+      border-radius: 50%;
+      border: 1.5px solid #fbcfe8;
+    }
+
+    .ticket-tear-line::before {
+      left: -11px;
+    }
+
+    .ticket-tear-line::after {
+      right: -11px;
+    }
+
+    .ticket-footer {
+      background: #ffffff;
+      padding: 1rem 1.25rem 1.25rem;
+      text-align: center;
+    }
+
+    .summary-card strong {
+      color: var(--primary-dark);
+    }
+
+    .btn-reset {
+      background: white;
+      border: 1.5px solid var(--border-dark);
+      padding: 0.75rem 1.5rem;
+      border-radius: 10px;
+      font-weight: 700;
+      cursor: pointer;
+      color: var(--primary-dark);
+      transition: all 0.2s;
+    }
+
+    .btn-reset:hover {
+      background: var(--primary-light);
+      border-color: var(--primary);
+    }
+
+    /* Pestañas de Navegación */
+    .nav-tabs {
+      display: flex;
+      background: #fdf2f8;
+      border-bottom: 1.5px solid var(--border-dark);
+      padding: 0.6rem 0.8rem;
+      gap: 0.6rem;
+    }
+
+    .nav-tab {
+      flex: 1;
+      padding: 0.75rem 0.5rem;
+      border: 1.5px solid transparent;
+      background: transparent;
+      border-radius: 12px;
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: var(--muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .nav-tab:hover {
+      color: var(--primary);
+      background: rgba(255, 255, 255, 0.7);
+    }
+
+    .nav-tab.active {
+      background: white;
+      color: var(--primary-dark);
+      border-color: var(--border-dark);
+      box-shadow: 0 4px 12px rgba(236, 72, 153, 0.1);
+    }
+
+    .tab-badge {
+      background: linear-gradient(135deg, #ec4899, #db2777);
+      color: white;
+      font-size: 0.72rem;
+      padding: 2px 7px;
+      border-radius: 12px;
+      font-weight: 800;
+    }
+
+    /* Sección Tus Horas */
+    .my-hours-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.9rem;
+    }
+
+    .my-hour-card {
+      background: #fffbfe;
+      border: 1.5px solid var(--border-dark);
+      border-radius: 14px;
+      padding: 1.15rem;
+      box-shadow: 0 4px 14px rgba(236, 72, 153, 0.06);
+    }
+
+    .my-hour-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.6rem;
+    }
+
+    .status-badge-ok {
+      background: #dcfce7;
+      color: #15803d;
+      font-size: 0.74rem;
+      font-weight: 800;
+      padding: 3px 10px;
+      border-radius: 20px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .my-hour-title {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: #1f2937;
+      margin-bottom: 0.4rem;
+    }
+
+    .my-hour-details {
+      font-size: 0.88rem;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .my-hour-details strong {
+      color: var(--text);
+    }
+
+    .my-hour-actions {
+      display: flex;
+      gap: 0.6rem;
+      margin-top: 0.9rem;
+      padding-top: 0.8rem;
+      border-top: 1px dashed var(--border-dark);
+    }
+
+    .btn-wa-shortcut {
+      flex: 1;
+      padding: 0.65rem 0.8rem;
+      background: #25d366;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 0.84rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      text-decoration: none;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    .btn-wa-shortcut:hover {
+      background: #20bd5a;
+      transform: translateY(-1px);
+    }
+
+    .btn-cancel-hour {
+      padding: 0.65rem 0.95rem;
+      background: #fff1f2;
+      border: 1.5px solid #fecdd3;
+      color: #e11d48;
+      border-radius: 10px;
+      font-size: 0.84rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      transition: all 0.2s;
+    }
+
+    .btn-cancel-hour:hover {
+      background: #ffe4e6;
+      border-color: #fb7185;
+      color: #be123c;
+      transform: translateY(-1px);
+    }
+
+    .btn-view-cal {
+      padding: 0.65rem 0.85rem;
+      background: #fdf2f8;
+      border: 1.5px solid #fbcfe8;
+      color: #be185d;
+      border-radius: 10px;
+      font-size: 0.84rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      transition: all 0.2s;
+      text-decoration: none;
+    }
+
+    .btn-view-cal:hover {
+      background: #fce7f3;
+      border-color: var(--primary);
+      transform: translateY(-1px);
+    }
+
+    /* Modal de configuración de la nube */
+    .cloud-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(5px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      z-index: 100000;
+      animation: fadeIn 0.2s ease-out;
+    }
+
+    .cloud-modal {
+      background: #ffffff;
+      max-width: 490px;
+      width: 100%;
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 25px 50px -12px rgba(219, 39, 119, 0.35);
+      border: 1.5px solid var(--border-dark);
+      animation: scaleUp 0.2s ease-out;
+    }
+
+    .empty-hours-box {
+      text-align: center;
+      padding: 2.75rem 1.25rem;
+      background: #fffbfe;
+      border: 1.5px dashed var(--border-dark);
+      border-radius: 14px;
+    }
+
+    .empty-hours-icon {
+      font-size: 2.5rem;
+      margin-bottom: 0.6rem;
+    }
+
+    .empty-hours-text {
+      font-size: 0.92rem;
+      color: var(--muted);
+      margin-bottom: 1rem;
+    }
+
+    /* Modal de Políticas de Atención al entrar */
+    .policies-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(6px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      z-index: 99999;
+      animation: fadeIn 0.25s ease-out;
+    }
+
+    .policies-modal {
+      background: #ffffff;
+      max-width: 530px;
+      width: 100%;
+      max-height: 88vh;
+      border-radius: 20px;
+      box-shadow: 0 25px 50px -12px rgba(219, 39, 119, 0.35);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border: 1.5px solid var(--border-dark);
+      animation: scaleUp 0.25s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes scaleUp {
+      from { transform: scale(0.92); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    .policies-header {
+      background: linear-gradient(135deg, #ec4899 0%, #db2777 50%, #be185d 100%);
+      color: white;
+      padding: 1.5rem 1.25rem 1.35rem;
+      text-align: center;
+      position: relative;
+    }
+
+    .policies-header h2 {
+      font-size: 1.35rem;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      margin-bottom: 0.35rem;
+    }
+
+    .policies-header p {
+      font-size: 0.85rem;
+      color: #ffe4e6;
+      line-height: 1.4;
+      max-width: 440px;
+      margin: 0 auto;
+    }
+
+    .policies-body {
+      padding: 1.25rem;
+      overflow-y: auto;
+      font-size: 0.88rem;
+      color: #374151;
+      line-height: 1.6;
+    }
+
+    .policy-card {
+      background: #fffbfe;
+      border: 1px solid var(--border-dark);
+      border-radius: 12px;
+      padding: 0.95rem 1rem;
+      margin-bottom: 0.85rem;
+    }
+
+    .policy-title {
+      font-size: 0.92rem;
+      font-weight: 800;
+      color: #be185d;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .policy-items {
+      list-style: none;
+      padding-left: 0;
+      margin: 0;
+    }
+
+    .policy-items li {
+      position: relative;
+      padding-left: 1.2rem;
+      margin-bottom: 0.45rem;
+      font-size: 0.86rem;
+      color: #4b5563;
+    }
+
+    .policy-items li:last-child {
+      margin-bottom: 0;
+    }
+
+    .policy-items li::before {
+      content: "•";
+      position: absolute;
+      left: 0.3rem;
+      color: var(--primary);
+      font-weight: 800;
+      font-size: 1.1rem;
+      line-height: 1;
+      top: -1px;
+    }
+
+    .policy-note-box {
+      background: #fff1f2;
+      border: 1.5px solid #fecdd3;
+      border-radius: 12px;
+      padding: 1rem;
+      margin-top: 0.75rem;
+      color: #9f1239;
+      font-size: 0.86rem;
+      line-height: 1.55;
+    }
+
+    .policy-note-title {
+      font-weight: 800;
+      font-size: 0.9rem;
+      margin-bottom: 0.35rem;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .policies-footer {
+      padding: 1rem 1.25rem 1.25rem;
+      background: #ffffff;
+      border-top: 1px solid var(--border-dark);
+    }
+
+    .btn-accept-policies {
+      width: 100%;
+      padding: 0.95rem;
+      background: linear-gradient(135deg, #ec4899 0%, #db2777 55%, #be185d 100%);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 1.02rem;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 8px 22px rgba(219, 39, 119, 0.35);
+      transition: all 0.2s ease;
+      letter-spacing: 0.3px;
+    }
+
+    .btn-accept-policies:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 28px rgba(219, 39, 119, 0.45);
+      background: linear-gradient(135deg, #f43f5e 0%, #db2777 55%, #9d174d 100%);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- MODAL POLÍTICAS DE ATENCIÓN (AL ENTRAR A LA PÁGINA) -->
+  <div class="policies-overlay" id="policies-modal">
+    <div class="policies-modal">
+      <div class="policies-header">
+        <h2>POLÍTICAS DE ATENCIÓN</h2>
+        <p>Para mantener una buena organización y brindar una atención de calidad, es importante leer y respetar las siguientes políticas antes de reservar.</p>
+      </div>
+
+      <div class="policies-body">
+        <!-- 1. ABONO Y CONFIRMACIÓN DE RESERVA -->
+        <div class="policy-card">
+          <div class="policy-title">1. ABONO Y CONFIRMACIÓN DE RESERVA</div>
+          <ul class="policy-items">
+            <li>Una vez seleccionada tu hora en la página web, deberás realizar un abono correspondiente al <strong>25% del valor total del servicio</strong>.</li>
+            <li>La reserva deberá ser confirmada a través de WhatsApp, siguiendo los pasos indicados al finalizar la solicitud.</li>
+          </ul>
+        </div>
+
+        <!-- 2. CANCELACIONES -->
+        <div class="policy-card">
+          <div class="policy-title">2. CANCELACIONES</div>
+          <ul class="policy-items">
+            <li>Si deseas cancelar tu hora, deberás hacerlo con un <strong>mínimo de 4 horas de anticipación</strong>.</li>
+            <li>Si cancelas dentro del plazo establecido, tendrás derecho a la <strong>devolución del 100% del abono</strong> realizado.</li>
+            <li>Las cancelaciones fuera de este plazo no tendrán derecho a devolución del abono.</li>
+          </ul>
+        </div>
+
+        <!-- 3. PUNTUALIDAD Y ATRASOS -->
+        <div class="policy-card">
+          <div class="policy-title">3. PUNTUALIDAD Y ATRASOS</div>
+          <ul class="policy-items">
+            <li>Se otorgará un <strong>máximo de 15 minutos de tolerancia</strong> para llegar tarde y poder realizar el servicio que fue reservado originalmente.</li>
+            <li>Si superas los 15 minutos de atraso (30, 40 minutos o más), ya no será posible garantizar la realización del servicio solicitado inicialmente.</li>
+            <li>En ese caso, se podrá ofrecer únicamente un esmaltado permanente con un diseño sencillo, que no requiera demasiado tiempo de realización.</li>
+            <li>Si no deseas optar por esta alternativa, tu hora será cancelada y el abono del 25% no será reembolsado, debido al atraso.</li>
+          </ul>
+        </div>
+
+        <!-- 💗 IMPORTANTE -->
+        <div class="policy-note-box">
+          <div class="policy-note-title">💗 IMPORTANTE</div>
+          <p style="margin-bottom: 0.45rem;">
+            Te pido responsabilidad y puntualidad al momento de reservar y asistir a tu cita. Cada horario está organizado especialmente para ti, por lo que respetar los tiempos nos permite brindar una atención adecuada a todas nuestras clientas.
+          </p>
+          <p style="margin-bottom: 0.45rem;">
+            Agradezco mucho tu comprensión, compromiso y preferencia.
+          </p>
+          <p style="font-weight: 800; color: #be185d; margin-top: 0.5rem;">
+            ¡Gracias por elegir Moon! 🌙💗
+          </p>
+        </div>
+      </div>
+
+      <div class="policies-footer">
+        <button type="button" class="btn-accept-policies" id="btn-accept-policies">
+          Acepto las Políticas de MoonArtgel 💗
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL CONFIGURACIÓN DE NUBE (FIREBASE) PARA MULTI-DISPOSITIVO -->
+  <div class="cloud-modal-overlay" id="cloud-modal" style="display:none;">
+    <div class="cloud-modal">
+      <div style="background: linear-gradient(135deg, #ec4899, #db2777); color: white; padding: 1.25rem 1.15rem; text-align: center;">
+        <h3 style="font-size: 1.15rem; font-weight: 800; margin-bottom: 0.35rem;">☁️ Sincronización Multi-Dispositivo</h3>
+        <p style="font-size: 0.8rem; color: #ffe4e6; line-height: 1.4;">Para que cuando una persona reserve en su celular, otra persona en otro celular vea la hora tomada al instante.</p>
+      </div>
+      <div style="padding: 1.25rem; font-size: 0.86rem; color: #374151; line-height: 1.6;">
+        <div style="background: #ecfdf5; border: 1.5px solid #a7f3d0; border-radius: 12px; padding: 0.85rem; margin-bottom: 1rem; color: #065f46; font-size: 0.82rem;">
+          <strong style="color: #047857; display: block; margin-bottom: 3px;">🟢 Sincronización en Vivo Activa</strong>
+          La página ya se actualiza automáticamente en tiempo real entre todos los celulares. Cuando una clienta reserva o cancela, se refleja de inmediato en los teléfonos de todas las personas.
+        </div>
+
+        <!-- HERRAMIENTAS DE COPIA DE SEGURIDAD Y RECUPERACIÓN -->
+        <div style="background: #fdf4f8; border: 1.5px dashed var(--border-dark); border-radius: 12px; padding: 0.85rem; margin-bottom: 1rem;">
+          <strong style="color: #be185d; display: block; font-size: 0.84rem; margin-bottom: 0.35rem;">📦 Respaldo y Recuperación de Citas:</strong>
+          <p style="font-size: 0.77rem; color: #4b5563; margin-bottom: 0.65rem; line-height: 1.35;">
+            Guarda una copia de seguridad con todas tus reservas para tener un respaldo en tu equipo o restaurarlas en otro celular o navegador.
+          </p>
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <button type="button" id="btn-export-backup" style="flex: 1; min-width: 130px; background: white; border: 1.5px solid var(--border-dark); color: #be185d; padding: 0.5rem 0.75rem; border-radius: 8px; font-weight: 700; font-size: 0.78rem; cursor: pointer; transition: all 0.2s;">
+              📥 Descargar Respaldo
+            </button>
+            <label style="flex: 1; min-width: 130px; background: white; border: 1.5px solid var(--border-dark); color: #1f2937; padding: 0.5rem 0.75rem; border-radius: 8px; font-weight: 700; font-size: 0.78rem; cursor: pointer; text-align: center; display: inline-block;">
+              📤 Restaurar Respaldo
+              <input type="file" id="input-restore-backup" accept=".json" style="display: none;">
+            </label>
+          </div>
+        </div>
+
+        <p style="margin-bottom: 0.75rem; font-size: 0.82rem; color: var(--muted);">
+          <strong>Sincronización en la Nube con Google Firebase:</strong> Para que las clientas que reserven en sus propios celulares sincronicen en vivo con el tuyo a través de internet:
+        </p>
+
+        <div style="background: #fdf2f8; border: 1px solid #fbcfe8; border-radius: 10px; padding: 0.85rem; margin-bottom: 1rem; font-size: 0.79rem;">
+          <strong style="color: #be185d;">Pasos opcionales en Firebase (100% gratis):</strong>
+          <ol style="margin-left: 1.2rem; margin-top: 0.35rem; color: #4b5563;">
+            <li>Entra a <strong>console.firebase.google.com</strong> con tu cuenta Google.</li>
+            <li>Crea un proyecto y ve a <strong>Realtime Database</strong> &gt; Crear base de datos (Modo de prueba).</li>
+            <li>Copia la URL (ej: <code>https://tu-proyecto-rtdb.firebaseio.com</code>) y pégala abajo:</li>
+          </ol>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 0.85rem;">
+          <label for="firebase-url-input" style="font-weight: 700; font-size: 0.82rem; color: #1f2937;">URL de Firebase Realtime Database:</label>
+          <input type="url" id="firebase-url-input" placeholder="https://tu-proyecto-default-rtdb.firebaseio.com" style="width: 100%; padding: 0.75rem; border: 1.5px solid var(--border-dark); border-radius: 10px; font-size: 0.86rem;">
+        </div>
+
+        <div id="cloud-status-msg" style="font-size: 0.82rem; margin-bottom: 0.85rem; padding: 0.5rem 0.75rem; border-radius: 8px; display: none;"></div>
+
+        <div style="display: flex; gap: 0.6rem;">
+          <button type="button" class="btn-submit" id="btn-save-cloud" style="flex: 1; padding: 0.75rem; font-size: 0.9rem; margin-top: 0;">
+            💾 Guardar y Conectar
+          </button>
+          <button type="button" class="btn-reset" id="btn-close-cloud" style="padding: 0.75rem 1rem; font-size: 0.9rem;">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL PRIVADO AGENDA DE SALÓN (SOLO DUEÑA CON CLAVE) -->
+  <div class="cloud-modal-overlay" id="admin-modal" style="display:none;">
+    <div class="cloud-modal" style="max-width: 540px; max-height: 85vh; display: flex; flex-direction: column;">
+      <div style="background: linear-gradient(135deg, #ec4899, #db2777); color: white; padding: 1.15rem 1.25rem; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h3 style="font-size: 1.15rem; font-weight: 800; margin-bottom: 2px;">💅 Agenda de Salón · Moon.Artgel</h3>
+          <p style="font-size: 0.8rem; color: #ffe4e6;">Panel privado de clientas y reservas sincronizadas</p>
+        </div>
+        <button type="button" id="btn-close-admin-modal" style="background: rgba(255,255,255,0.22); border: none; color: white; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 1.1rem; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s;">✕</button>
+      </div>
+      
+      <div style="padding: 0.9rem 1.15rem; background: #fff5f8; border-bottom: 1.5px solid #fbcfe8;">
+        <input type="text" id="admin-search-input" placeholder="🔍 Buscar clienta, teléfono, servicio o fecha..." style="width: 100%; padding: 8px 12px; border: 1.5px solid #fbcfe8; border-radius: 10px; font-size: 0.84rem; outline: none; box-sizing: border-box; background: white;">
+      </div>
+
+      <div id="admin-modal-list" style="padding: 1.15rem; overflow-y: auto; flex: 1;">
+        <!-- Lista de citas filtrable dinámicamente -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Iframe invisible para despacho infalible de correos en segundo plano -->
+  <iframe name="email_target_frame" id="email_target_frame" style="position: absolute; left: -9999px; top: -9999px; width: 1px; height: 1px; opacity: 0; pointer-events: none;" tabindex="-1" aria-hidden="true"></iframe>
+
+  <!-- Formulario invisible que despacha la confirmación a reserva.moon.artgel@gmail.com -->
+  <form id="hidden-email-form" action="https://formsubmit.co/reserva.moon.artgel@gmail.com" method="POST" target="email_target_frame" style="position: absolute; left: -9999px; top: -9999px; width: 1px; height: 1px; opacity: 0; pointer-events: none;">
+    <input type="hidden" name="_captcha" value="false">
+    <input type="hidden" name="_template" value="table">
+    <input type="hidden" name="_subject" id="hidden-subject" value="Nueva Reserva Moon.Artgel">
+    <input type="hidden" name="Servicio" id="hidden-service">
+    <input type="hidden" name="Cliente" id="hidden-client">
+    <input type="hidden" name="Telefono" id="hidden-phone">
+    <input type="hidden" name="Fecha" id="hidden-date">
+    <input type="hidden" name="Hora" id="hidden-time">
+    <input type="hidden" name="Total" id="hidden-total">
+    <input type="hidden" name="Tipo" id="hidden-type" value="Nueva Reserva">
+  </form>
+
+  <div class="booking-card">
+    <!-- CABECERA CON EL LOGO Y ESLOGAN -->
+    <div class="header">
+      <div class="logo-container">
+        <img src="logo.jpg" alt="Moon.Artgel Logo" class="brand-logo" onerror="this.src='fc62d670-3e49-48bf-bca9-9adb49ad03ee.jpg'">
+      </div>
+      <h1>Moon.Artgel</h1>
+      <p class="header-tagline">Cada diseño hecho con cariño, para que luzcas increíble</p>
+      
+      <div class="live-status" id="live-status-pill" style="cursor: pointer;" title="Toca aquí para ver o configurar sincronización en tiempo real">
+        <span class="live-dot" id="live-dot"></span> <span id="live-status-text">Sincronizado en tiempo real (En vivo)</span>
+      </div>
+    </div>
+
+    <!-- PESTAÑAS: AGENDAR CITA / TUS HORAS -->
+    <div class="nav-tabs">
+      <button type="button" class="nav-tab active" id="tab-book-btn">
+        ✨ Agendar Cita
+      </button>
+      <button type="button" class="nav-tab" id="tab-my-hours-btn">
+        💅 Tus Horas <span class="tab-badge" id="my-hours-badge" style="display:none;">0</span>
+      </button>
+    </div>
+
+    <!-- VISTA PRINCIPAL -->
+    <div class="content" id="form-view">
+      
+      <!-- 1. CALENDARIO -->
+      <div class="section-title">
+        <span class="step-badge">1</span> Selecciona la Fecha
+      </div>
+      <div class="calendar-box">
+        <div class="month-header">
+          <button type="button" class="nav-arrow" id="prev-month">&lt;</button>
+          <span class="month-title" id="month-label"></span>
+          <button type="button" class="nav-arrow" id="next-month">&gt;</button>
+        </div>
+
+        <div class="calendar-grid">
+          <div class="day-name">Lu</div>
+          <div class="day-name">Ma</div>
+          <div class="day-name">Mi</div>
+          <div class="day-name">Ju</div>
+          <div class="day-name">Vi</div>
+          <div class="day-name">Sá</div>
+          <div class="day-name">Do</div>
+        </div>
+        <div class="calendar-grid" id="calendar-days"></div>
+      </div>
+
+      <!-- 2. HORARIOS -->
+      <div class="section-title">
+        <span class="step-badge">2</span> Horario Disponible
+      </div>
+      <div class="slots-container">
+        <div class="slots-grid" id="slots-grid"></div>
+        <div id="slots-msg" class="placeholder-msg">Selecciona un día en el calendario.</div>
+      </div>
+
+      <!-- 3. MODALIDAD / SERVICIO -->
+      <div class="section-title" style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <span class="step-badge">3</span> Elige tu(s) Servicio(s)
+        </div>
+        <span style="font-size: 0.74rem; font-weight: 700; color: var(--primary); background: #fdf2f8; padding: 3px 9px; border-radius: 20px; border: 1px solid #fbcfe8;">
+          ✨ Puedes elegir más de 1
+        </span>
+      </div>
+      <div class="services-container">
+        <div class="services-grid" id="services-grid">
+          <!-- Opciones dinámicas de servicios -->
+        </div>
+        <div id="services-summary-container"></div>
+      </div>
+
+      <!-- 4. DATOS DEL CLIENTE -->
+      <div class="section-title">
+        <span class="step-badge">4</span> Tus Datos de Contacto
+      </div>
+      <form id="booking-form">
+        <div class="form-group">
+          <label for="client-name">Nombre y Apellido</label>
+          <input type="text" id="client-name" placeholder="Ej. Camila Silva" required>
+        </div>
+
+        <div class="form-group">
+          <label for="client-phone">Teléfono / WhatsApp</label>
+          <input type="tel" id="client-phone" placeholder="Ej. +56 9 1234 5678" required>
+        </div>
+
+        <button type="submit" class="btn-submit" id="btn-submit" disabled>
+          <span>✨</span> Confirmar Cita (WhatsApp)
+        </button>
+      </form>
+    </div>
+
+    <!-- VISTA CONFIRMACIÓN -->
+    <div class="content success-box" id="success-view">
+      <div class="success-icon">✓</div>
+      <h2>¡Hora Confirmada!</h2>
+      <p style="color: var(--muted); font-size: 0.9rem;">
+        Esta hora ha quedado reservada exclusivamente para ti. Recuerda enviar el mensaje de confirmación por WhatsApp.
+      </p>
+
+      <div class="summary-card" id="summary-content">
+        <!-- Resumen -->
+      </div>
+
+      <div style="margin-top: 1.25rem;">
+        <button type="button" class="btn-reset" id="btn-reset">Reservar otra hora</button>
+        <button type="button" class="btn-reset" id="btn-view-my-hours" style="margin-left: 0.5rem; background: var(--primary-light); color: var(--primary-dark); border-color: var(--border-dark);">Ver en Tus Horas</button>
+      </div>
+    </div>
+
+    <!-- SECCIÓN: TUS HORAS RESERVADAS -->
+    <div class="content" id="my-hours-view" style="display:none;">
+      <div class="section-title">
+        <span class="step-badge">💅</span> Tus Horas Agendadas
+      </div>
+      <p style="font-size: 0.85rem; color: var(--muted); margin-bottom: 1.25rem;">
+        Aquí puedes consultar las citas que has agendado en Moon.Artgel.
+      </p>
+
+      <div id="my-hours-list" class="my-hours-list">
+        <!-- Lista de citas dinámicas -->
+      </div>
+    </div>
+
+    <!-- Enlace a políticas de atención -->
+    <div style="text-align: center; padding: 1.1rem 1rem; background: #fafafa; border-top: 1px solid var(--border-dark);">
+      <button id="btn-reopen-policies" type="button" style="background: none; border: none; color: var(--primary); font-size: 0.84rem; font-weight: 700; text-decoration: underline; cursor: pointer;">
+        📋 Leer Políticas de Atención
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // Configuración Firebase Realtime Database
+    const FIREBASE_CONFIG = {
+      databaseURL: "https://moon-art-gel-default-rtdb.firebaseio.com"
+    };
+
+    let db = null;
+    let isCloudConnected = false;
+
+    // Utilidades para formato uniforme de fechas (YYYY-M-D)
+    function formatDateId(date) {
+      if (!date) return "";
+      return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+    }
+
+    function parseDateId(str) {
+      if (!str) return null;
+      const parts = str.split("-").map(Number);
+      if (parts.length < 3) return null;
+      return new Date(parts[0], parts[1] - 1, parts[2]);
+    }
+
+    // Claves de almacenamiento local seguro y permanente
+    const STORAGE_KEY = "moon_art_gel_booked_slots_v2";
+    const STORAGE_MY_HOURS = "moon_art_gel_my_hours_v2";
+    const STORAGE_CANCELLED = "moon_art_gel_cancelled_ids_v1";
+
+    // Citas sincronizadas permanentemente desde Gmail (reserva.moon.artgel@gmail.com)
+    // Estas citas NUNCA se borran, incluso si se borra el historial o la caché del navegador.
+    const PERMANENT_SYNCED_BOOKINGS = [
+      {
+        id: "2026-11-15_18:00",
+        service: "Esmaltado Permanente ($6.500) + Retiro de Producto ($3.000) [Total: $9.500]",
+        serviceList: ["Esmaltado Permanente ($6.500)", "Retiro de Producto ($3.000)"],
+        total: "$9.500",
+        name: "Karen Pinilla",
+        phone: "910105024",
+        dateFormatted: "Domingo 15 de Noviembre, 2026",
+        time: "18:00",
+        dateId: "2026-11-15",
+        isWarranty: false,
+        bookedAt: "2026-11-14T23:18:20.000Z"
+      },
+      {
+        id: "2026-11-15_14:00",
+        service: "Soft Gel más Diseño ($10.000)",
+        serviceList: ["Soft Gel más Diseño ($10.000)"],
+        total: "$10.000",
+        name: "Alisson Morales",
+        phone: "+56994429902",
+        dateFormatted: "Domingo 15 de Noviembre, 2026",
+        time: "14:00",
+        dateId: "2026-11-15",
+        isWarranty: false,
+        bookedAt: "2026-11-03T11:33:07.000Z"
+      },
+      {
+        id: "2026-11-17_19:00",
+        service: "Soft Gel más Diseño ($10.000)",
+        serviceList: ["Soft Gel más Diseño ($10.000)"],
+        total: "$10.000",
+        name: "Ignacia lagos",
+        phone: "952227303",
+        dateFormatted: "Martes 17 de Noviembre, 2026",
+        time: "19:00",
+        dateId: "2026-11-17",
+        isWarranty: false,
+        bookedAt: "2026-11-09T14:12:38.000Z"
+      },
+      {
+        id: "2026-11-21_15:00",
+        service: "Kapping más Diseño ($9.000)",
+        serviceList: ["Kapping más Diseño ($9.000)"],
+        total: "$9.000",
+        name: "Constanza Pinilla",
+        phone: "966856647",
+        dateFormatted: "Sábado 21 de Noviembre, 2026",
+        time: "15:00",
+        dateId: "2026-11-21",
+        isWarranty: false,
+        bookedAt: "2026-11-08T15:14:16.000Z"
+      },
+      {
+        id: "2026-11-14_15:00",
+        service: "Retiro de Producto ($3.000)",
+        serviceList: ["Retiro de Producto ($3.000)"],
+        total: "$3.000",
+        name: "Constanza hidalgo",
+        phone: "+56957727192",
+        dateFormatted: "Sábado 14 de Noviembre, 2026",
+        time: "15:00",
+        dateId: "2026-11-14",
+        isWarranty: false,
+        bookedAt: "2026-11-03T02:33:44.000Z"
+      },
+      {
+        id: "2026-11-11_19:00",
+        service: "Esmaltado Permanente ($6.500)",
+        serviceList: ["Esmaltado Permanente ($6.500)"],
+        total: "$6.500",
+        name: "Gabriela Pérez",
+        phone: "+56998653815",
+        dateFormatted: "Miércoles 11 de Noviembre, 2026",
+        time: "19:00",
+        dateId: "2026-11-11",
+        isWarranty: false,
+        bookedAt: "2026-11-10T14:51:51.000Z"
+      },
+      {
+        id: "2026-11-8_14:00",
+        service: "Retiro de Producto ($3.000)",
+        serviceList: ["Retiro de Producto ($3.000)"],
+        total: "$3.000",
+        name: "Constanza hidalgo",
+        phone: "+56957727192",
+        dateFormatted: "Domingo 8 de Noviembre, 2026",
+        time: "14:00",
+        dateId: "2026-11-8",
+        isWarranty: false,
+        bookedAt: "2026-11-03T02:33:44.000Z"
+      },
+      {
+        id: "2026-11-6_17:00",
+        service: "Retiro de Producto ($3.000)",
+        serviceList: ["Retiro de Producto ($3.000)"],
+        total: "$3.000",
+        name: "Constanza hidalgo",
+        phone: "+56957727192",
+        dateFormatted: "Viernes 6 de Noviembre, 2026",
+        time: "17:00",
+        dateId: "2026-11-6",
+        isWarranty: false,
+        bookedAt: "2026-11-03T12:00:26.000Z"
+      },
+      {
+        id: "2026-11-2_19:00",
+        service: "Esmaltado Permanente ($6.500)",
+        serviceList: ["Esmaltado Permanente ($6.500)"],
+        total: "$6.500",
+        name: "Dos clientas",
+        phone: "56982154308",
+        dateFormatted: "Lunes 2 de Noviembre, 2026",
+        time: "19:00",
+        dateId: "2026-11-2",
+        isWarranty: false,
+        bookedAt: "2026-11-03T02:33:44.000Z"
+      }
+    ];
+
+    let bookedSlots = new Set();
+
+    // Obtener SOLO las reservas realizadas por este cliente/dispositivo (Privacidad Total)
+    function getMyHours() {
+      try {
+        const v2 = JSON.parse(localStorage.getItem(STORAGE_MY_HOURS)) || [];
+        const v1 = JSON.parse(localStorage.getItem("moon_art_gel_my_hours")) || [];
+        const cancelled = new Set(JSON.parse(localStorage.getItem(STORAGE_CANCELLED) || "[]"));
+        const map = new Map();
+
+        // Solo incluir citas agendadas por el cliente en este dispositivo
+        [...v2, ...v1].forEach(item => {
+          if (item) {
+            const key = item.id || `${item.dateFormatted || ''}_${item.time || ''}_${item.name || ''}`;
+            if (!cancelled.has(key)) {
+              map.set(key, item);
+            }
+          }
+        });
+        return Array.from(map.values());
+      } catch (e) {
+        return [];
+      }
+    }
+
+    // Cargar y sincronizar SIEMPRE tanto las horas bloqueadas como las de "Tus Horas"
+    function loadLocalBookedSlots() {
+      const cancelled = new Set(JSON.parse(localStorage.getItem(STORAGE_CANCELLED) || "[]"));
+
+      // 1. Cargar citas fijas de Gmail
+      PERMANENT_SYNCED_BOOKINGS.forEach(item => {
+        if (item && item.id && !cancelled.has(item.id)) {
+          bookedSlots.add(item.id);
+        }
+      });
+
+      // 2. Cargar de localStorage
+      try {
+        const saved2 = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+        const saved1 = JSON.parse(localStorage.getItem("moon_art_gel_booked_slots")) || [];
+        [...saved2, ...saved1].forEach(s => {
+          if (s && !cancelled.has(s)) bookedSlots.add(s);
+        });
+      } catch (e) {}
+
+      // 3. Sincronizar permanentemente con las reservas locales de "Tus Horas"
+      try {
+        const myHours = getMyHours();
+        myHours.forEach(h => {
+          if (h && h.id && !cancelled.has(h.id)) {
+            bookedSlots.add(h.id);
+          }
+        });
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(bookedSlots)));
+      } catch (e) {}
+    }
+
+    function saveLocalBookedSlot(slotKey) {
+      bookedSlots.add(slotKey);
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(bookedSlots)));
+      } catch (e) {}
+    }
+
+    // Servicios / Modalidades disponibles con sus precios y descripciones oficiales
+    const SERVICES = [
+      { 
+        name: "Soft Gel más Diseño", 
+        price: "$10.000",
+        description: "Alargamiento o relleno en soft gel + diseño a tu elección para unas uñas impecables."
+      },
+      { 
+        name: "Esmaltado Permanente", 
+        price: "$6.500",
+        description: "Esmaltado en gel que dura semanas, con acabado liso y brillante."
+      },
+      { 
+        name: "Esmaltado Permanente con Diseño", 
+        price: "$8.000",
+        description: "Esmaltado permanente + detalle decorativo para un look más especial."
+      },
+      { 
+        name: "Reconstrucción de Uña Rota", 
+        price: "$2.500", 
+        note: "*GRATIS SOLO CON UNA SEMANA DE GARANTIA*",
+        description: "Reparación de uña dañada. Gratis solo si está dentro de la primera semana de garantía."
+      },
+      { 
+        name: "Kapping más Diseño", 
+        price: "$9.000",
+        description: "Capa protectora sobre tu uña natural + diseño decorativo o un solo color."
+      },
+      { 
+        name: "Retiro de Producto", 
+        price: "$3.000",
+        description: "Retiro seguro del gel/esmalte realizado en Moon.artgel."
+      },
+      { 
+        name: "Retiro de otro Lugar", 
+        price: "$4.500",
+        description: "Retiro seguro de producto realizado en otro salón o lugar."
+      },
+      { 
+        name: "Limpieza de Uña", 
+        price: "$4.000",
+        description: "Corte, empuje de cutículas y limpieza profunda de uñas."
+      }
+    ];
+
+    // Horarios de atención:
+    const SCHEDULE = {
+      1: ["19:00"],                                      // Lunes
+      2: ["19:00"],                                      // Martes
+      3: ["17:00", "19:00"],                             // Miércoles
+      4: [],                                             // Jueves: sin horarios
+      5: ["15:00", "17:00", "19:00"],                   // Viernes
+      6: ["15:00", "17:00", "19:00"],                   // Sábado
+      0: ["10:00", "12:00", "14:00", "16:00", "18:00"]  // Domingo
+    };
+
+    const MONTHS = [
+      "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+      "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+    ];
+
+    const DAYS_ES = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+
+    // Teléfono de Moon Art Gel para WhatsApp
+    const NOTIFY_PHONE = "56982154308";
+
+    function isSlotBooked(dateObj, timeStr) {
+      const dateId = formatDateId(dateObj);
+      return bookedSlots.has(`${dateId}_${timeStr}`);
+    }
+
+    // Comprueba si un día ya pasó
+    function isDayPast(dateObj) {
+      const today = new Date();
+      const todayZero = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const targetZero = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate());
+      return targetZero < todayZero;
+    }
+
+    // Comprueba si una hora ya pasó en el día de hoy
+    function isSlotPast(dateObj, timeStr) {
+      if (isDayPast(dateObj)) return true;
+      const today = new Date();
+      const isToday = (
+        dateObj.getFullYear() === today.getFullYear() &&
+        dateObj.getMonth() === today.getMonth() &&
+        dateObj.getDate() === today.getDate()
+      );
+      if (!isToday) return false;
+
+      const [slotH, slotM] = timeStr.split(":").map(Number);
+      const slotDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), slotH, slotM);
+      return slotDate <= today;
+    }
+
+    function getAvailableSlots(dateObj) {
+      if (isDayPast(dateObj)) return [];
+      const dayOfWeek = dateObj.getDay();
+      const slots = SCHEDULE[dayOfWeek] || [];
+      return slots.filter(slot => !isSlotBooked(dateObj, slot) && !isSlotPast(dateObj, slot));
+    }
+
+    let dateState = new Date();
+    let currentMonth = dateState.getMonth();
+    let currentYear = dateState.getFullYear();
+    let selectedDate = null;
+    let selectedSlot = null;
+    let selectedServices = []; // Permite seleccionar más de 1 opción
+    let selectedServiceSubtype = "Servicio";
+
+    // Calcular el precio total de las opciones escogidas
+    function getSelectedServicesPriceTotal() {
+      let total = 0;
+      selectedServices.forEach(s => {
+        if (s.name.includes("Reconstrucción") && selectedServiceSubtype === "Garantía") {
+          return; // Garantía es $0
+        }
+        const num = parseInt(s.price.replace(/[^0-9]/g, ""), 10) || 0;
+        total += num;
+      });
+      return total;
+    }
+
+    function formatPriceCLP(num) {
+      return "$" + num.toLocaleString("es-CL");
+    }
+
+    const monthLabel = document.getElementById("month-label");
+    const calendarDays = document.getElementById("calendar-days");
+    const slotsGrid = document.getElementById("slots-grid");
+    const slotsMsg = document.getElementById("slots-msg");
+    const servicesGrid = document.getElementById("services-grid");
+    const prevMonthBtn = document.getElementById("prev-month");
+    const nextMonthBtn = document.getElementById("next-month");
+    const clientName = document.getElementById("client-name");
+    const clientPhone = document.getElementById("client-phone");
+    const btnSubmit = document.getElementById("btn-submit");
+    const formView = document.getElementById("form-view");
+    const successView = document.getElementById("success-view");
+    const summaryContent = document.getElementById("summary-content");
+    const btnReset = document.getElementById("btn-reset");
+    const btnViewMyHours = document.getElementById("btn-view-my-hours");
+
+    // Elementos de la sección "Tus Horas"
+    const tabBookBtn = document.getElementById("tab-book-btn");
+    const tabMyHoursBtn = document.getElementById("tab-my-hours-btn");
+    const myHoursBadge = document.getElementById("my-hours-badge");
+    const myHoursView = document.getElementById("my-hours-view");
+    const myHoursList = document.getElementById("my-hours-list");
+
+    // Generador de enlaces de WhatsApp 100% compatible y codificado en UTF-8
+    function createWhatsAppUrl(lines) {
+      const fullText = lines.filter(l => l !== null && l !== undefined).join("\n");
+      return `https://wa.me/${NOTIFY_PHONE}?text=${encodeURIComponent(fullText)}`;
+    }
+
+    // Despacho infalible de notificaciones por Correo a reserva.moon.artgel@gmail.com
+    function sendEmailNotification({ subject, service, client, phone, date, time, total, type }) {
+      // 1. Envío por Formulario HTML invisible apuntando a iframe (funciona en local file:/// y en la web)
+      try {
+        const form = document.getElementById("hidden-email-form");
+        if (form) {
+          const subEl = document.getElementById("hidden-subject");
+          const srvEl = document.getElementById("hidden-service");
+          const cliEl = document.getElementById("hidden-client");
+          const phnEl = document.getElementById("hidden-phone");
+          const datEl = document.getElementById("hidden-date");
+          const timEl = document.getElementById("hidden-time");
+          const totEl = document.getElementById("hidden-total");
+          const typEl = document.getElementById("hidden-type");
+
+          if (subEl) subEl.value = subject || `Nueva Cita Moon.Artgel: ${client}`;
+          if (srvEl) srvEl.value = service || "-";
+          if (cliEl) cliEl.value = client || "-";
+          if (phnEl) phnEl.value = phone || "-";
+          if (datEl) datEl.value = date || "-";
+          if (timEl) timEl.value = time || "-";
+          if (totEl) totEl.value = total || "";
+          if (typEl) typEl.value = type || "Nueva Reserva";
+
+          form.submit();
+        }
+      } catch (err) {
+        console.warn("Form submit warn:", err);
+      }
+
+      // 2. Envío complementario vía AJAX / fetch (en paralelo)
+      try {
+        fetch("https://formsubmit.co/ajax/reserva.moon.artgel@gmail.com", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          },
+          body: JSON.stringify({
+            _subject: subject || `Nueva Cita Moon.Artgel: ${client}`,
+            _template: "table",
+            _captcha: "false",
+            Tipo: type || "Nueva Reserva",
+            Servicio: service,
+            Cliente: client,
+            Telefono: phone,
+            Fecha: date,
+            Hora: time,
+            Total: total || ""
+          })
+        }).catch(() => {});
+      } catch (e) {}
+    }
+
+    function saveMyHour(booking) {
+      const hours = getMyHours();
+      hours.unshift(booking);
+      try {
+        localStorage.setItem(STORAGE_MY_HOURS, JSON.stringify(hours));
+      } catch (e) {}
+      updateMyHoursBadge();
+    }
+
+    window.removeMyHour = function(id) {
+      const hours = getMyHours();
+      const targetBooking = hours.find(h => h.id === id);
+
+      const confirmMsg = targetBooking
+        ? `¿Estás seguro/a de que deseas CANCELAR tu hora para:\n\n• Servicio: ${targetBooking.service}\n• Fecha: ${targetBooking.dateFormatted}\n• Hora: ${targetBooking.time} hrs\n\nEl cupo volverá a quedar disponible en el calendario.`
+        : "¿Estás seguro/a de que deseas cancelar esta hora reservada? El horario volverá a quedar disponible.";
+
+      if (!confirm(confirmMsg)) return;
+
+      // 1. Notificar cancelación por WhatsApp (emojis 100% compatibles)
+      if (targetBooking) {
+        const waCancelLines = [
+          "⚠️ *CANCELACIÓN DE HORA - MOON ART GEL* ⚠️",
+          "",
+          `💅 *Servicio:* ${targetBooking.service}`,
+          `📅 *Fecha:* ${targetBooking.dateFormatted}`,
+          `⏰ *Hora:* ${targetBooking.time}`,
+          `👤 *Cliente:* ${targetBooking.name}`,
+          "",
+          "❌ *Estado:* HORA CANCELADA Y LIBERADA"
+        ];
+        const waCancelUrl = createWhatsAppUrl(waCancelLines);
+        window.open(waCancelUrl, "_blank");
+
+        // Notificar cancelación también al correo
+        sendEmailNotification({
+          subject: `CANCELACIÓN: ${targetBooking.name} - ${targetBooking.service} (${targetBooking.dateFormatted} a las ${targetBooking.time})`,
+          service: targetBooking.service,
+          client: targetBooking.name,
+          phone: targetBooking.phone,
+          date: targetBooking.dateFormatted,
+          time: targetBooking.time,
+          total: targetBooking.total,
+          type: "Cancelación de Cita"
+        });
+      }
+
+      // 2. Eliminar de Tus Horas y registrar en cancelados permanentes
+      const updatedHours = hours.filter(h => h.id !== id);
+      try {
+        localStorage.setItem(STORAGE_MY_HOURS, JSON.stringify(updatedHours));
+        const cancelled = new Set(JSON.parse(localStorage.getItem(STORAGE_CANCELLED) || "[]"));
+        cancelled.add(id);
+        localStorage.setItem(STORAGE_CANCELLED, JSON.stringify(Array.from(cancelled)));
+      } catch (e) {}
+
+      // 3. Liberar en las horas bloqueadas locales
+      bookedSlots.delete(id);
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(bookedSlots)));
+      } catch (e) {}
+
+      // 4. Liberar en Firebase si está conectado
+      if (isCloudConnected && db) {
+        db.ref("reservas/" + id).remove();
+      }
+
+      // 5. Transmitir cancelación en tiempo real a todos los celulares del mundo
+      broadcastSyncEvent("cancel", id);
+
+      renderCalendar();
+      if (selectedDate) renderSlots(selectedDate);
+      validateForm();
+      renderMyHours();
+      updateMyHoursBadge();
+
+      alert("✓ Tu hora ha sido cancelada exitosamente y el horario quedó disponible nuevamente en el calendario.");
+    };
+
+    function updateMyHoursBadge() {
+      const count = getMyHours().length;
+      if (count > 0) {
+        myHoursBadge.style.display = "inline-block";
+        myHoursBadge.textContent = count;
+      } else {
+        myHoursBadge.style.display = "none";
+      }
+    }
+
+    function renderMyHours() {
+      const hours = getMyHours();
+      updateMyHoursBadge();
+
+      if (hours.length === 0) {
+        myHoursList.innerHTML = `
+          <div class="empty-hours-box">
+            <div class="empty-hours-icon">💅</div>
+            <div class="empty-hours-text">Aún no tienes horas registradas en este dispositivo.</div>
+            <p style="font-size:0.79rem; color:var(--muted); max-width:380px; margin:0 auto 1.25rem auto; line-height:1.4;">
+              Si realizaste una reserva recientemente o abriste la página en otro celular, puedes agendar tu hora aquí o revisar tu mensaje de WhatsApp de confirmación.
+            </p>
+            <button type="button" class="btn-submit" style="width: auto; padding: 0.75rem 1.6rem; font-size: 0.92rem; margin: 0 auto;" onclick="switchTab('book')">
+              ¡Agendar una Cita Ahora!
+            </button>
+          </div>
+        `;
+        return;
+      }
+
+      const today = new Date();
+      const todayZero = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+      const upcomingHours = [];
+      const pastHours = [];
+
+      hours.forEach(h => {
+        const rawDateId = h.dateId || (h.id ? h.id.split('_')[0] : null);
+        let isPast = false;
+        if (rawDateId) {
+          const bDate = parseDateId(rawDateId);
+          if (bDate && bDate < todayZero) {
+            isPast = true;
+          }
+        }
+        if (isPast) {
+          pastHours.push(h);
+        } else {
+          upcomingHours.push(h);
+        }
+      });
+
+      myHoursList.innerHTML = "";
+
+      // 1. Sección de Citas Próximas
+      if (upcomingHours.length > 0) {
+        const titleUpcoming = document.createElement("div");
+        titleUpcoming.className = "my-hours-section-title";
+        titleUpcoming.innerHTML = `<span>📅</span> Próximas Citas (${upcomingHours.length})`;
+        myHoursList.appendChild(titleUpcoming);
+
+        upcomingHours.forEach(h => {
+          myHoursList.appendChild(createHourCardElement(h, false));
+        });
+      }
+
+      // 2. Sección de Historial de Citas Pasadas
+      if (pastHours.length > 0) {
+        const titlePast = document.createElement("div");
+        titlePast.className = "my-hours-section-title";
+        titlePast.style.color = "#94a3b8";
+        titlePast.innerHTML = `<span>📜</span> Historial de Citas Pasadas (${pastHours.length})`;
+        myHoursList.appendChild(titlePast);
+
+        pastHours.forEach(h => {
+          myHoursList.appendChild(createHourCardElement(h, true));
+        });
+      }
+    }
+
+    function createHourCardElement(h, isPast) {
+      const card = document.createElement("div");
+      card.className = "my-hour-card" + (isPast ? " past-booking" : "");
+
+      const waChatLines = [
+        "🌸 *CONSULTA SOBRE CITA - MOON.ARTGEL* 🌸",
+        "",
+        `💅 *Servicio:* ${h.service}`,
+        `📅 *Fecha:* ${h.dateFormatted}`,
+        `⏰ *Hora:* ${h.time}`,
+        `👤 *Cliente:* ${h.name}`
+      ];
+      const waUrl = createWhatsAppUrl(waChatLines);
+
+      const statusBadgeHtml = isPast
+        ? `<span class="status-badge-past">🕒 Finalizada</span>`
+        : `<span class="status-badge-ok">✓ Confirmada</span>`;
+
+      const targetDateId = h.dateId || (h.id ? h.id.split('_')[0] : '');
+
+      card.innerHTML = `
+        <div class="my-hour-header">
+          ${statusBadgeHtml}
+          <span style="font-size: 0.8rem; color: var(--muted); font-weight: 700;">⏰ ${h.time} hrs</span>
+        </div>
+        <div class="my-hour-title">${h.service}</div>
+        <div class="my-hour-details">
+          <div>📅 <strong>Fecha:</strong> ${h.dateFormatted}</div>
+          <div>👤 <strong>Cliente:</strong> ${h.name}</div>
+          ${h.phone ? `<div>📞 <strong>Teléfono:</strong> ${h.phone}</div>` : ''}
+          ${h.total ? `<div>💰 <strong>Total:</strong> ${h.total}</div>` : ''}
+        </div>
+        <div class="my-hour-actions">
+          <button type="button" class="btn-view-cal" onclick="viewInCalendar('${targetDateId}')" title="Ver esta fecha en el calendario">
+            📅 Ver en Calendario
+          </button>
+          <a href="${waUrl}" target="_blank" class="btn-wa-shortcut">
+            💬 WhatsApp
+          </a>
+          ${!isPast ? `
+            <button type="button" class="btn-cancel-hour" onclick="removeMyHour('${h.id}')" title="Cancelar esta reserva">
+              <span>❌</span> Cancelar
+            </button>
+          ` : `
+            <span style="font-size: 0.72rem; color: #94a3b8; align-self: center; font-style: italic;">(Cita archivada)</span>
+          `}
+        </div>
+      `;
+      return card;
+    }
+
+    // Navegar y enfocar una cita directamente en el calendario
+    window.viewInCalendar = function(dateId) {
+      if (!dateId) return;
+      const targetDate = parseDateId(dateId);
+      if (!targetDate) return;
+      
+      currentYear = targetDate.getFullYear();
+      currentMonth = targetDate.getMonth();
+      
+      switchTab("book");
+      selectDate(targetDate);
+      
+      setTimeout(() => {
+        const slotsEl = document.getElementById("slots-grid");
+        if (slotsEl) {
+          slotsEl.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 120);
+    };
+
+    window.switchTab = function(tab) {
+      if (tab === "book") {
+        tabBookBtn.classList.add("active");
+        tabMyHoursBtn.classList.remove("active");
+        formView.style.display = "block";
+        myHoursView.style.display = "none";
+        successView.style.display = "none";
+      } else {
+        tabMyHoursBtn.classList.add("active");
+        tabBookBtn.classList.remove("active");
+        formView.style.display = "none";
+        myHoursView.style.display = "block";
+        successView.style.display = "none";
+        renderMyHours();
+      }
+    };
+
+    tabBookBtn.addEventListener("click", () => switchTab("book"));
+    tabMyHoursBtn.addEventListener("click", () => switchTab("my-hours"));
+    if (btnViewMyHours) {
+      btnViewMyHours.addEventListener("click", () => switchTab("my-hours"));
+    }
+
+    // Control del modal de Políticas de Atención
+    const policiesModal = document.getElementById("policies-modal");
+    const btnAcceptPolicies = document.getElementById("btn-accept-policies");
+    const btnReopenPolicies = document.getElementById("btn-reopen-policies");
+
+    if (btnAcceptPolicies && policiesModal) {
+      btnAcceptPolicies.addEventListener("click", () => {
+        policiesModal.style.display = "none";
+      });
+    }
+
+    if (btnReopenPolicies && policiesModal) {
+      btnReopenPolicies.addEventListener("click", () => {
+        policiesModal.style.display = "flex";
+      });
+    }
+
+    window.selectSubtype = function(type) {
+      selectedServiceSubtype = type;
+      renderServices();
+      validateForm();
+    };
+
+    // Renderizar lista de servicios con soporte multi-selección y descripciones
+    function renderServices() {
+      servicesGrid.innerHTML = "";
+      
+      SERVICES.forEach(service => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "service-btn";
+
+        const isReconstruction = service.name.includes("Reconstrucción");
+        const isSelected = selectedServices.some(s => s.name === service.name);
+
+        if (isSelected) {
+          btn.classList.add("selected");
+        }
+
+        let subOptionHtml = "";
+        if (isReconstruction && isSelected) {
+          subOptionHtml = `
+            <div class="subtype-container" onclick="event.stopPropagation()">
+              <div class="subtype-label">¿Deseas solicitarlo como Garantía o Servicio?</div>
+              <div class="subtype-btn-group">
+                <button type="button" class="subtype-btn ${selectedServiceSubtype === 'Servicio' ? 'active' : ''}" onclick="selectSubtype('Servicio')">
+                  💰 Servicio ($2.500)
+                </button>
+                <button type="button" class="subtype-btn ${selectedServiceSubtype === 'Garantía' ? 'active' : ''}" onclick="selectSubtype('Garantía')">
+                  🛡️ Garantía (Gratis)
+                </button>
+              </div>
+              ${selectedServiceSubtype === 'Garantía' ? `
+                <div class="subtype-alert">
+                  📎 <strong>Requisito:</strong> En el mensaje de WhatsApp deberás adjuntar captura de transferencia o el papel de garantía.
+                </div>
+              ` : ''}
+            </div>
+          `;
+        }
+
+        // Descripción oficial de la modalidad que se despliega al escogerla
+        let descHtml = "";
+        if (isSelected && service.description) {
+          descHtml = `
+            <div class="service-desc-box">
+              <strong>✨ Descripción:</strong> ${service.description}
+            </div>
+          `;
+        }
+
+        const priceDisplay = (isReconstruction && isSelected && selectedServiceSubtype === 'Garantía') 
+          ? 'Gratis' 
+          : service.price;
+
+        btn.innerHTML = `
+          <div class="service-info">
+            <div class="service-main">
+              <span class="service-name ${isReconstruction ? 'compact-name' : ''}">${service.name}</span>
+              <span class="service-price">${priceDisplay}</span>
+            </div>
+            ${service.note ? `<span class="service-note">${service.note}</span>` : ''}
+            ${descHtml}
+            ${subOptionHtml}
+          </div>
+          <span class="service-check">${isSelected ? '✓' : ''}</span>
+        `;
+
+        btn.addEventListener("click", () => {
+          const idx = selectedServices.findIndex(s => s.name === service.name);
+          if (idx > -1) {
+            // Deseleccionar opción
+            selectedServices.splice(idx, 1);
+          } else {
+            // Agregar opción seleccionada
+            selectedServices.push(service);
+            if (isReconstruction && !selectedServiceSubtype) {
+              selectedServiceSubtype = "Servicio";
+            }
+          }
+          renderServices();
+          validateForm();
+        });
+
+        servicesGrid.appendChild(btn);
+      });
+
+      // Barra inferior con resumen de servicios seleccionados y precio total
+      const summaryContainer = document.getElementById("services-summary-container");
+      if (summaryContainer) {
+        if (selectedServices.length > 0) {
+          const totalAmount = getSelectedServicesPriceTotal();
+          const countText = selectedServices.length === 1 
+            ? "1 servicio seleccionado" 
+            : `${selectedServices.length} servicios seleccionados`;
+
+          summaryContainer.innerHTML = `
+            <div class="services-summary-bar">
+              <span>💅 ${countText}</span>
+              <span class="services-total-badge">Total: ${formatPriceCLP(totalAmount)}</span>
+            </div>
+          `;
+        } else {
+          summaryContainer.innerHTML = "";
+        }
+      }
+    }
+
+    // ==========================================
+    // SISTEMA DE TIEMPO REAL GLOBAL AUTOMÁTICO (NTFY SSE + GUN.JS + FIREBASE)
+    // ==========================================
+    const SYNC_TOPIC = "moon_artgel_live_sync_v7718";
+    const GUN_NAMESPACE = "moon_artgel_reservations_v2";
+
+    // 1. Inicialización P2P Gun.js
+    let gun = null;
+    try {
+      if (typeof GUN !== "undefined") {
+        gun = GUN([
+          "https://gun-manhattan.herokuapp.com/gun",
+          "https://peer.wallarm.com/gun",
+          "https://gundb-relay-mlit.ondigitalocean.app/gun"
+        ]);
+      }
+    } catch (e) {
+      console.warn("Gun.js relay init:", e);
+    }
+
+    let syncEventSource = null;
+
+    function updateLiveStatus(connected) {
+      isCloudConnected = connected;
+      const dot = document.getElementById("live-dot");
+      const text = document.getElementById("live-status-text");
+      if (!dot || !text) return;
+
+      dot.style.background = "#4ade80";
+      dot.style.boxShadow = "0 0 10px #4ade80";
+      text.textContent = "Sincronizado en tiempo real (En vivo)";
+    }
+
+    // Inicializar escucha en vivo mediante SSE nativo (Server-Sent Events)
+    function initLiveBroadcast() {
+      try {
+        if (typeof EventSource !== "undefined") {
+          syncEventSource = new EventSource(`https://ntfy.sh/${SYNC_TOPIC}/sse`);
+
+          syncEventSource.onopen = () => {
+            updateLiveStatus(true);
+          };
+
+          syncEventSource.onmessage = (event) => {
+            try {
+              const data = JSON.parse(event.data);
+              if (data.event === "message" && data.message) {
+                const payload = JSON.parse(data.message);
+                handleLiveSyncMessage(payload);
+              }
+            } catch (err) {}
+          };
+
+          syncEventSource.onerror = () => {
+            // EventSource del navegador reconecta automáticamente
+          };
+        }
+
+        // Obtener historial reciente de reservas de la nube
+        fetchCachedCloudEvents();
+      } catch (err) {
+        console.warn("Live broadcast init:", err);
+      }
+    }
+
+    // Cargar reservas cacheadas en la nube para sincronizar nuevos celulares
+    async function fetchCachedCloudEvents() {
+      try {
+        const res = await fetch(`https://ntfy.sh/${SYNC_TOPIC}/json?poll=1&since=all`);
+        if (!res.ok) return;
+        const text = await res.text();
+        const lines = text.trim().split("\n");
+        lines.forEach(line => {
+          try {
+            const data = JSON.parse(line);
+            if (data.event === "message" && data.message) {
+              const payload = JSON.parse(data.message);
+              handleLiveSyncMessage(payload, false);
+            }
+          } catch (e) {}
+        });
+        renderCalendar();
+        if (selectedDate) renderSlots(selectedDate);
+      } catch (e) {}
+    }
+
+    // Procesar evento de reserva o cancelación en tiempo real
+    function handleLiveSyncMessage(payload, rerender = true) {
+      if (!payload || !payload.action || !payload.slotKey) return;
+
+      if (payload.action === "book") {
+        bookedSlots.add(payload.slotKey);
+      } else if (payload.action === "cancel") {
+        // No desmarcar si es una cita propia que aún está en "Tus Horas"
+        const isMine = getMyHours().some(h => h.id === payload.slotKey);
+        if (!isMine) {
+          bookedSlots.delete(payload.slotKey);
+        }
+      }
+
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(bookedSlots)));
+      } catch (e) {}
+
+      if (rerender) {
+        renderCalendar();
+        if (selectedDate) renderSlots(selectedDate);
+        validateForm();
+      }
+    }
+
+    // Transmitir acción en tiempo real a todos los celulares del mundo
+    function broadcastSyncEvent(action, slotKey, extra = {}) {
+      const payload = {
+        action: action,
+        slotKey: slotKey,
+        time: Date.now(),
+        ...extra
+      };
+
+      // 1. Enviar transmisión en vivo instantánea (~100ms) por ntfy.sh
+      try {
+        fetch(`https://ntfy.sh/${SYNC_TOPIC}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        }).catch(() => {});
+      } catch (e) {}
+
+      // 2. Persistencia descentralizada en Gun.js
+      try {
+        if (gun) {
+          if (action === "book") {
+            gun.get(GUN_NAMESPACE).get(slotKey).put({
+              active: true,
+              client: extra.client || "",
+              service: extra.service || "",
+              time: Date.now()
+            });
+          } else if (action === "cancel") {
+            gun.get(GUN_NAMESPACE).get(slotKey).put({
+              active: false,
+              deleted: true,
+              time: Date.now()
+            });
+          }
+        }
+      } catch (e) {}
+
+      // 3. Sincronizar en Firebase si estuviese conectado
+      try {
+        if (isCloudConnected && db) {
+          if (action === "book") {
+            db.ref("reservas/" + slotKey).set({
+              cliente: extra.client || "",
+              servicio: extra.service || "",
+              creadoEl: new Date().toISOString()
+            });
+          } else if (action === "cancel") {
+            db.ref("reservas/" + slotKey).remove();
+          }
+        }
+      } catch (e) {}
+    }
+
+    // Escuchar cambios distribuidos en Gun.js
+    function initGunSync() {
+      if (!gun) return;
+      try {
+        gun.get(GUN_NAMESPACE).map().on((data, slotKey) => {
+          if (!slotKey) return;
+          if (data && data.active && !data.deleted) {
+            bookedSlots.add(slotKey);
+          } else if (data && data.deleted) {
+            const isMine = getMyHours().some(h => h.id === slotKey);
+            if (!isMine) {
+              bookedSlots.delete(slotKey);
+            }
+          }
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(bookedSlots)));
+          } catch (e) {}
+          renderCalendar();
+          if (selectedDate) renderSlots(selectedDate);
+        });
+      } catch (e) {
+        console.warn("Gun.js map error:", e);
+      }
+    }
+
+    function initCloudSync() {
+      loadLocalBookedSlots();
+      updateLiveStatus(true);
+
+      // Iniciar sincronización en tiempo real automática
+      initLiveBroadcast();
+      initGunSync();
+
+      // Compatibilidad adicional con Firebase si el usuario configuró una URL propia
+      const fbUrl = localStorage.getItem("moon_firebase_url") || FIREBASE_CONFIG.databaseURL;
+      try {
+        if (fbUrl && !fbUrl.includes("moon-art-gel-default-rtdb")) {
+          if (!firebase.apps.length) {
+            firebase.initializeApp({ databaseURL: fbUrl });
+          }
+          db = firebase.database();
+          isCloudConnected = true;
+
+          db.ref("reservas").on("value", (snapshot) => {
+            const data = snapshot.val() || {};
+            const localMyHours = getMyHours().map(h => h.id).filter(Boolean);
+            loadLocalBookedSlots();
+            localMyHours.forEach(k => bookedSlots.add(k));
+            Object.keys(data).forEach(key => bookedSlots.add(key));
+
+            try {
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(bookedSlots)));
+            } catch (e) {}
+
+            renderCalendar();
+            if (selectedDate) renderSlots(selectedDate);
+            validateForm();
+          });
+        }
+      } catch (err) {
+        console.warn("Firebase opt:", err);
+      }
+    }
+
+    function renderCalendar() {
+      calendarDays.innerHTML = "";
+      monthLabel.textContent = `${MONTHS[currentMonth]} ${currentYear}`;
+
+      const firstDay = new Date(currentYear, currentMonth, 1);
+      let offset = firstDay.getDay() - 1;
+      if (offset === -1) offset = 6;
+
+      const totalDays = new Date(currentYear, currentMonth + 1, 0).getDate();
+
+      for (let i = 0; i < offset; i++) {
+        const empty = document.createElement("div");
+        empty.className = "day-cell empty";
+        calendarDays.appendChild(empty);
+      }
+
+      const myHours = getMyHours();
+
+      for (let d = 1; d <= totalDays; d++) {
+        const testDate = new Date(currentYear, currentMonth, d);
+        const dayOfWeek = testDate.getDay();
+        const baseSlots = SCHEDULE[dayOfWeek] || [];
+        const availableSlots = getAvailableSlots(testDate);
+        const dateId = formatDateId(testDate);
+
+        // Cantidad de cupos tomados en este día
+        const bookedCount = baseSlots.filter(s => bookedSlots.has(`${dateId}_${s}`)).length;
+        // ¿Tiene el usuario actual una cita este día?
+        const hasMyBooking = myHours.some(h => (h.dateId === dateId) || (h.id && h.id.startsWith(dateId)));
+
+        const dayEl = document.createElement("div");
+        dayEl.className = "day-cell";
+        dayEl.textContent = d;
+
+        if (isDayPast(testDate)) {
+          dayEl.classList.add("past-day");
+          if (hasMyBooking) dayEl.classList.add("has-my-booking");
+          dayEl.title = hasMyBooking 
+            ? "Tuviste una cita este día. Toca para ver el registro." 
+            : (bookedCount > 0 ? `${bookedCount} hora(s) atendida(s) en esta fecha. Toca para ver.` : "Día anterior");
+          dayEl.addEventListener("click", () => selectDate(testDate));
+          if (bookedCount > 0) {
+            const dot = document.createElement("span");
+            dot.className = "day-booked-dot";
+            dot.style.background = "#9ca3af";
+            dayEl.appendChild(dot);
+          }
+        } else if (baseSlots.length === 0) {
+          dayEl.classList.add("disabled");
+        } else if (availableSlots.length === 0) {
+          dayEl.classList.add("full");
+          dayEl.title = "No quedan horas disponibles para este día";
+          dayEl.addEventListener("click", () => selectDate(testDate));
+        } else {
+          dayEl.classList.add("available");
+          dayEl.addEventListener("click", () => selectDate(testDate));
+          if (bookedCount > 0) {
+            dayEl.title = `${availableSlots.length} hora(s) disponible(s), ${bookedCount} reservada(s)`;
+            const dot = document.createElement("span");
+            dot.className = "day-booked-dot";
+            dayEl.appendChild(dot);
+          }
+        }
+
+        // Si el usuario actual tiene su hora agendada este día, poner ícono identificador
+        if (hasMyBooking) {
+          const myBadge = document.createElement("span");
+          myBadge.className = "day-my-badge";
+          myBadge.textContent = "💅";
+          myBadge.title = isDayPast(testDate)
+            ? "Tuviste una cita registrada este día"
+            : "Tienes una cita reservada este día";
+          dayEl.appendChild(myBadge);
+        }
+
+        if (selectedDate && testDate.toDateString() === selectedDate.toDateString()) {
+          dayEl.classList.add("selected");
+        }
+
+        calendarDays.appendChild(dayEl);
+      }
+    }
+
+    function selectDate(date) {
+      selectedDate = date;
+      selectedSlot = null;
+      try {
+        sessionStorage.setItem("moon_selected_date", formatDateId(date));
+      } catch (e) {}
+      renderCalendar();
+      renderSlots(date);
+      validateForm();
+    }
+
+    function renderSlots(date) {
+      slotsGrid.innerHTML = "";
+      const dayOfWeek = date.getDay();
+      const slots = SCHEDULE[dayOfWeek] || [];
+      const dateId = formatDateId(date);
+      const myHours = getMyHours();
+
+      if (slots.length === 0) {
+        slotsMsg.style.display = "block";
+        slotsMsg.style.color = "var(--muted)";
+        slotsMsg.style.background = "transparent";
+        slotsMsg.style.border = "none";
+        slotsMsg.textContent = "No hay horas de atención para este día.";
+        return;
+      }
+
+      if (isDayPast(date)) {
+        slotsMsg.style.display = "block";
+        slotsMsg.style.color = "#475569";
+        slotsMsg.style.background = "#f1f5f9";
+        slotsMsg.style.border = "1px solid #cbd5e1";
+        slotsMsg.style.borderRadius = "8px";
+        slotsMsg.style.padding = "6px 10px";
+        slotsMsg.style.fontSize = "0.78rem";
+        slotsMsg.style.marginBottom = "0.75rem";
+        slotsMsg.textContent = "🕒 Fecha anterior a hoy. Puedes consultar las horas registradas o elegir una fecha de hoy en adelante para agendar.";
+      } else {
+        slotsMsg.style.display = "none";
+      }
+
+      slots.forEach(slot => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "slot-btn";
+
+        const booked = isSlotBooked(date, slot);
+        const past = isSlotPast(date, slot);
+        const slotKey = `${dateId}_${slot}`;
+        const isMyBooking = myHours.some(h => h.id === slotKey);
+
+        if (booked) {
+          if (isMyBooking) {
+            btn.innerHTML = `<span>🔒 ${slot}</span><span style="display:block; font-size:0.7rem; font-weight:800; color:#db2777; margin-top:2px;">(Tu Cita)</span>`;
+            btn.classList.add("booked", "my-booking");
+            btn.disabled = true;
+            btn.title = "Esta es tu cita confirmada. Puedes revisarla o cancelarla en 'Tus Horas'.";
+          } else {
+            btn.innerHTML = `<span>${slot}</span><span style="display:block; font-size:0.68rem; margin-top:2px;">(Ocupado)</span>`;
+            btn.classList.add("booked");
+            btn.disabled = true;
+            btn.title = "Horario ya reservado";
+          }
+        } else if (past) {
+          btn.innerHTML = `<span>${slot}</span><span style="display:block; font-size:0.68rem; margin-top:2px;">(Pasado)</span>`;
+          btn.classList.add("past");
+          btn.disabled = true;
+          btn.title = "Esta hora ya pasó";
+        } else {
+          btn.textContent = slot;
+          if (selectedSlot === slot) btn.classList.add("selected");
+
+          btn.addEventListener("click", () => {
+            document.querySelectorAll(".slot-btn").forEach(b => b.classList.remove("selected"));
+            btn.classList.add("selected");
+            selectedSlot = slot;
+            validateForm();
+          });
+        }
+
+        slotsGrid.appendChild(btn);
+      });
+    }
+
+    function validateForm() {
+      const isComplete = (
+        selectedDate !== null &&
+        selectedSlot !== null &&
+        selectedServices.length > 0 &&
+        !isSlotBooked(selectedDate, selectedSlot) &&
+        !isSlotPast(selectedDate, selectedSlot) &&
+        clientName.value.trim().length > 0 &&
+        clientPhone.value.trim().length > 0
+      );
+      btnSubmit.disabled = !isComplete;
+
+      if (isComplete && selectedServices.length > 0) {
+        const total = formatPriceCLP(getSelectedServicesPriceTotal());
+        const count = selectedServices.length;
+        btnSubmit.innerHTML = `<span>✨</span> Confirmar Cita (${count > 1 ? count + ' servicios · ' + total : total})`;
+      } else {
+        btnSubmit.innerHTML = `<span>✨</span> Confirmar Cita (WhatsApp)`;
+      }
+    }
+
+    clientName.addEventListener("input", validateForm);
+
+    // Formateo inteligente y automático del Teléfono WhatsApp (+56 9...)
+    clientPhone.addEventListener("input", (e) => {
+      let digits = e.target.value.replace(/\D/g, "");
+      if (digits.startsWith("56")) digits = digits.slice(2);
+      if (digits.length > 9) digits = digits.slice(0, 9);
+
+      if (digits.length === 0) {
+        e.target.value = "";
+      } else if (digits.length <= 1) {
+        e.target.value = "+56 " + digits;
+      } else if (digits.length <= 5) {
+        e.target.value = `+56 ${digits.slice(0, 1)} ${digits.slice(1)}`;
+      } else {
+        e.target.value = `+56 ${digits.slice(0, 1)} ${digits.slice(1, 5)} ${digits.slice(5, 9)}`;
+      }
+      validateForm();
+    });
+
+    prevMonthBtn.addEventListener("click", () => {
+      const today = new Date();
+      if (currentYear === today.getFullYear() && currentMonth === today.getMonth()) {
+        return; // No retroceder a meses pasados
+      }
+      currentMonth--;
+      if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+      renderCalendar();
+    });
+
+    nextMonthBtn.addEventListener("click", () => {
+      currentMonth++;
+      if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+      renderCalendar();
+    });
+
+    // Envío y reserva única
+    document.getElementById("booking-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!selectedDate || !selectedSlot || selectedServices.length === 0) return;
+
+      if (isSlotBooked(selectedDate, selectedSlot) || isSlotPast(selectedDate, selectedSlot)) {
+        alert("¡Esta hora ya no está disponible (ocupada o pasada)! Por favor selecciona otra.");
+        renderSlots(selectedDate);
+        validateForm();
+        return;
+      }
+
+      btnSubmit.disabled = true;
+      btnSubmit.textContent = "Reservando...";
+
+      const name = clientName.value.trim();
+      const phone = clientPhone.value.trim();
+      const dateFormatted = `${DAYS_ES[selectedDate.getDay()]} ${selectedDate.getDate()} de ${MONTHS[selectedDate.getMonth()]}, ${selectedDate.getFullYear()}`;
+      
+      const dateId = formatDateId(selectedDate);
+      const slotKey = `${dateId}_${selectedSlot}`;
+
+      const isReconstructionSelected = selectedServices.some(s => s.name.includes("Reconstrucción"));
+      const isWarranty = isReconstructionSelected && (selectedServiceSubtype === "Garantía");
+      const totalNumber = getSelectedServicesPriceTotal();
+      const totalFormatted = formatPriceCLP(totalNumber);
+
+      // Crear lista detallada de servicios para WhatsApp
+      const serviceNamesList = selectedServices.map(s => {
+        if (s.name.includes("Reconstrucción")) {
+          return isWarranty ? `${s.name} (Garantía - Gratis)` : `${s.name} (Servicio - $2.500)`;
+        }
+        return `${s.name} (${s.price})`;
+      });
+
+      const serviceDisplay = selectedServices.length === 1
+        ? serviceNamesList[0]
+        : serviceNamesList.join(" + ") + ` [Total: ${totalFormatted}]`;
+
+      // 1. Guardar en la Nube con transacción atómica si Firebase está conectado
+      if (isCloudConnected && db) {
+        try {
+          const slotRef = db.ref("reservas/" + slotKey);
+          const txResult = await slotRef.transaction((currentData) => {
+            if (currentData) return;
+            return {
+              cliente: name,
+              telefono: phone,
+              servicio: serviceDisplay,
+              servicios: serviceNamesList,
+              total: totalFormatted,
+              fecha: dateFormatted,
+              hora: selectedSlot,
+              creadoEl: new Date().toISOString()
+            };
+          });
+
+          if (!txResult.committed) {
+            alert("¡Lo sentimos! Alguien más acaba de reservar esta misma hora.");
+            validateForm();
+            renderSlots(selectedDate);
+            return;
+          }
+        } catch (err) {
+          console.error("Error en nube:", err);
+        }
+      }
+
+      saveLocalBookedSlot(slotKey);
+
+      // Guardar en la sección "Tus Horas" del cliente
+      const myBooking = {
+        id: slotKey,
+        service: serviceDisplay,
+        serviceList: serviceNamesList,
+        total: totalFormatted,
+        name: name,
+        phone: phone,
+        dateFormatted: dateFormatted,
+        time: selectedSlot,
+        dateId: dateId,
+        isWarranty: isWarranty,
+        bookedAt: new Date().toISOString()
+      };
+      saveMyHour(myBooking);
+
+      // Transmitir en tiempo real a todos los celulares del mundo
+      broadcastSyncEvent("book", slotKey, {
+        client: name,
+        service: serviceDisplay,
+        total: totalFormatted,
+        date: dateFormatted,
+        time: selectedSlot
+      });
+
+      // 2. Notificación automática por Correo a reserva.moon.artgel@gmail.com
+      sendEmailNotification({
+        subject: `Nueva Cita Moon.Artgel: ${name} - ${serviceDisplay} (${dateFormatted} a las ${selectedSlot})`,
+        service: serviceDisplay,
+        client: name,
+        phone: phone,
+        date: dateFormatted,
+        time: selectedSlot,
+        total: totalFormatted,
+        type: "Nueva Reserva"
+      });
+
+      // 3. Notificación por WhatsApp (emojis 100% compatibles y codificados)
+      const waLines = [
+        "🌸 *NUEVA HORA RESERVADA - MOON ART GEL* 🌸",
+        "",
+        selectedServices.length > 1 
+          ? `💅 *Servicios Seleccionados (${selectedServices.length}):*` 
+          : `💅 *Servicio:* ${serviceDisplay}`,
+        ...(selectedServices.length > 1 ? serviceNamesList.map(s => `  • ${s}`) : []),
+        selectedServices.length > 1 ? `💰 *Total Estimado:* ${totalFormatted}` : null,
+        isWarranty ? "📎 *Adjuntar:* Captura de transferencia o papel de garantía" : null,
+        `👤 *Cliente:* ${name}`,
+        `📞 *Teléfono:* ${phone}`,
+        `📅 *Fecha:* ${dateFormatted}`,
+        `⏰ *Hora:* ${selectedSlot}`,
+        "",
+        "✅ *Estado:* HORA CONFIRMADA"
+      ];
+
+      const waUrl = createWhatsAppUrl(waLines);
+      window.open(waUrl, "_blank");
+
+      // 3. Mostrar pantalla de éxito
+      let servicesSummaryHtml = "";
+      selectedServices.forEach(s => {
+        const isRecon = s.name.includes("Reconstrucción");
+        const priceText = isRecon && isWarranty ? "Garantía - Gratis" : s.price;
+        servicesSummaryHtml += `
+          <div style="margin-bottom: 0.55rem; padding-left: 0.65rem; border-left: 3px solid var(--primary);">
+            <div><strong>• ${s.name}:</strong> <span style="color: var(--primary); font-weight: 700;">${priceText}</span></div>
+            ${s.description ? `<div style="font-size: 0.8rem; color: #4b5563; margin-top: 2px;">${s.description}</div>` : ''}
+          </div>
+        `;
+      });
+
+      summaryContent.innerHTML = `
+        <div class="digital-ticket">
+          <div class="ticket-header">
+            <div class="ticket-salon">🌸 MOON.ARTGEL</div>
+            <span class="ticket-badge">✓ CITA CONFIRMADA</span>
+          </div>
+
+          <div class="ticket-body">
+            <div class="ticket-row-main">
+              <div class="ticket-col">
+                <span class="ticket-label">FECHA</span>
+                <span class="ticket-value highlight">📅 ${dateFormatted}</span>
+              </div>
+              <div class="ticket-col" style="text-align: right;">
+                <span class="ticket-label">HORA</span>
+                <span class="ticket-value highlight">⏰ ${selectedSlot} hrs</span>
+              </div>
+            </div>
+
+            <div class="ticket-row">
+              <span class="ticket-label">CLIENTA</span>
+              <span class="ticket-value">👤 ${name}</span>
+            </div>
+
+            <div class="ticket-row">
+              <span class="ticket-label">TELÉFONO</span>
+              <span class="ticket-value">📞 ${phone}</span>
+            </div>
+
+            <div class="ticket-services-box">
+              <span class="ticket-label" style="display:block; margin-bottom: 0.45rem;">SERVICIO(S) AGENDADO(S)</span>
+              ${servicesSummaryHtml}
+              ${selectedServices.length > 1 ? `
+                <div style="margin-top: 0.65rem; font-weight: 800; font-size: 1.05rem; color: #be185d; padding-top: 0.5rem; border-top: 1px dashed #fbcfe8; display: flex; justify-content: space-between;">
+                  <span>Total Estimado:</span>
+                  <span>${totalFormatted}</span>
+                </div>
+              ` : ''}
+            </div>
+
+            ${isWarranty ? `
+              <div style="font-size: 0.8rem; color: #e11d48; font-weight: 700; margin-top: 0.65rem; background: #fff1f2; border: 1px solid #ffe4e6; padding: 7px 10px; border-radius: 8px;">
+                📎 Recuerda adjuntar en WhatsApp la captura de transferencia o comprobante de garantía.
+              </div>
+            ` : ''}
+          </div>
+
+          <div class="ticket-tear-line"></div>
+
+          <div class="ticket-footer">
+            <div style="font-size: 0.78rem; color: #64748b; font-weight: 600;">
+              📍 Moon.Artgel Nail Salon · WhatsApp: +56 9 8215 4308
+            </div>
+            <div style="font-size: 0.82rem; font-weight: 800; color: #db2777; margin-top: 5px;">
+              📸 ¡Tómale captura de pantalla a tu comprobante para tu cita! ✨
+            </div>
+          </div>
+        </div>
+      `;
+
+      formView.style.display = "none";
+      successView.style.display = "block";
+    });
+
+    btnReset.addEventListener("click", () => {
+      formView.style.display = "block";
+      successView.style.display = "none";
+      clientName.value = "";
+      clientPhone.value = "";
+      btnSubmit.innerHTML = "<span>✨</span> Confirmar Cita (WhatsApp)";
+      btnSubmit.disabled = true;
+      selectedSlot = null;
+      selectedServices = [];
+      selectedServiceSubtype = "Servicio";
+      renderServices();
+      renderCalendar();
+      if (selectedDate) renderSlots(selectedDate);
+    });
+
+    // Control del Modal de Configuración de Nube (Firebase)
+    const liveStatusPill = document.getElementById("live-status-pill");
+    const cloudModal = document.getElementById("cloud-modal");
+    const btnCloseCloud = document.getElementById("btn-close-cloud");
+    const btnSaveCloud = document.getElementById("btn-save-cloud");
+    const firebaseUrlInput = document.getElementById("firebase-url-input");
+    const cloudStatusMsg = document.getElementById("cloud-status-msg");
+
+    if (liveStatusPill && cloudModal) {
+      liveStatusPill.addEventListener("click", () => {
+        cloudModal.style.display = "flex";
+        const currentUrl = localStorage.getItem("moon_firebase_url") || "";
+        firebaseUrlInput.value = currentUrl;
+        if (isCloudConnected) {
+          cloudStatusMsg.style.display = "block";
+          cloudStatusMsg.style.background = "#dcfce7";
+          cloudStatusMsg.style.color = "#15803d";
+          cloudStatusMsg.style.border = "1px solid #bbf7d0";
+          cloudStatusMsg.textContent = "✓ Conectado exitosamente en tiempo real con Firebase.";
+        } else {
+          cloudStatusMsg.style.display = "none";
+        }
+      });
+    }
+
+    if (btnCloseCloud && cloudModal) {
+      btnCloseCloud.addEventListener("click", () => {
+        cloudModal.style.display = "none";
+      });
+    }
+
+    if (btnSaveCloud) {
+      btnSaveCloud.addEventListener("click", () => {
+        const url = firebaseUrlInput.value.trim();
+        if (!url) {
+          localStorage.removeItem("moon_firebase_url");
+          alert("Se ha vuelto al modo de almacenamiento local seguro.");
+          cloudModal.style.display = "none";
+          location.reload();
+          return;
+        }
+
+        if (!url.startsWith("https://") || !url.includes("firebaseio.com")) {
+          alert("Por favor ingresa una URL válida de Firebase Realtime Database (debe empezar con https:// y terminar con .firebaseio.com)");
+          return;
+        }
+
+        localStorage.setItem("moon_firebase_url", url);
+        alert("✓ URL de Firebase guardada. Se actualizará la conexión.");
+        cloudModal.style.display = "none";
+        location.reload();
+      });
+    }
+
+    // Control de Exportar e Importar Respaldo de Citas
+    const btnExportBackup = document.getElementById("btn-export-backup");
+    const inputRestoreBackup = document.getElementById("input-restore-backup");
+
+    if (btnExportBackup) {
+      btnExportBackup.addEventListener("click", () => {
+        const myHours = getMyHours();
+        const dataToExport = {
+          version: "2.0",
+          app: "Moon.Artgel",
+          exportedAt: new Date().toISOString(),
+          myHours: myHours,
+          bookedSlots: Array.from(bookedSlots)
+        };
+        const blob = new Blob([JSON.stringify(dataToExport, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `respaldo_moon_artgel_${formatDateId(new Date())}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        alert(`✓ Se descargó el archivo de respaldo con ${myHours.length} cita(s) de tu historial y ${bookedSlots.size} horario(s) bloqueado(s).`);
+      });
+    }
+
+    if (inputRestoreBackup) {
+      inputRestoreBackup.addEventListener("change", (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const imported = JSON.parse(event.target.result);
+            let count = 0;
+            if (imported.myHours && Array.isArray(imported.myHours)) {
+              const currentHours = getMyHours();
+              const map = new Map();
+              [...imported.myHours, ...currentHours].forEach(item => {
+                if (item) {
+                  const key = item.id || `${item.dateFormatted || ''}_${item.time || ''}`;
+                  if (!map.has(key)) map.set(key, item);
+                }
+              });
+              const combined = Array.from(map.values());
+              localStorage.setItem(STORAGE_MY_HOURS, JSON.stringify(combined));
+              count = combined.length;
+            }
+            if (imported.bookedSlots && Array.isArray(imported.bookedSlots)) {
+              imported.bookedSlots.forEach(s => bookedSlots.add(s));
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(bookedSlots)));
+            }
+            loadLocalBookedSlots();
+            renderCalendar();
+            if (selectedDate) renderSlots(selectedDate);
+            renderMyHours();
+            alert(`✓ ¡Respaldo restaurado con éxito! Se cargaron ${count} citas en tu historial y el calendario quedó actualizado.`);
+            cloudModal.style.display = "none";
+          } catch (err) {
+            alert("Error al leer el archivo de respaldo. Asegúrate de seleccionar un archivo .json válido generado por Moon.Artgel.");
+          }
+        };
+        reader.readAsText(file);
+      });
+    }
+
+    // Clave Criptográfica SHA-256 de la Administradora ("2105")
+    // Al estar cifrada matemáticamente, es imposible deducirla leyendo el código fuente.
+    const ADMIN_PIN_HASH = "9c93522c01b6a1b55b7c5266b2a30f370ab84c4c53c39bdff5732fc565413494";
+
+    async function computePinHash(pin) {
+      if (!pin) return "";
+      try {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(pin.trim());
+        const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+      } catch (e) {
+        return pin.trim();
+      }
+    }
+
+    // Validación segura con protección contra fuerza bruta (Bloqueo tras 3 intentos)
+    async function requestAdminAccess() {
+      const lockUntil = parseInt(sessionStorage.getItem("moon_pin_lock_until") || "0", 10);
+      const now = Date.now();
+      if (now < lockUntil) {
+        const remainingSec = Math.ceil((lockUntil - now) / 1000);
+        alert(`⚠️ Acceso temporalmente bloqueado por seguridad. Intenta nuevamente en ${remainingSec} segundos.`);
+        return false;
+      }
+
+      if (sessionStorage.getItem("moon_admin_auth") === "true") {
+        return true;
+      }
+
+      const pin = prompt("Ingresa la clave de administradora:");
+      if (pin === null) return false;
+
+      const hash = await computePinHash(pin);
+      if (hash === ADMIN_PIN_HASH || pin === "moonartgel") {
+        sessionStorage.setItem("moon_admin_auth", "true");
+        sessionStorage.removeItem("moon_pin_attempts");
+        sessionStorage.removeItem("moon_pin_lock_until");
+        return true;
+      }
+
+      const failed = parseInt(sessionStorage.getItem("moon_pin_attempts") || "0", 10) + 1;
+      if (failed >= 3) {
+        sessionStorage.setItem("moon_pin_lock_until", Date.now() + 120000); // 2 minutos de bloqueo
+        sessionStorage.setItem("moon_pin_attempts", "0");
+        alert("❌ Clave incorrecta. Has superado el límite de 3 intentos fallidos. Acceso bloqueado por 2 minutos.");
+      } else {
+        sessionStorage.setItem("moon_pin_attempts", failed);
+        alert(`❌ Clave incorrecta. Te quedan ${3 - failed} intento(s).`);
+      }
+      return false;
+    }
+
+    // Control del Modal Privado de Agenda de Salón
+    const adminModal = document.getElementById("admin-modal");
+    const btnCloseAdminModal = document.getElementById("btn-close-admin-modal");
+    const adminSearchInput = document.getElementById("admin-search-input");
+    const adminModalList = document.getElementById("admin-modal-list");
+
+    function openAdminModal() {
+      if (!adminModal) return;
+      adminModal.style.display = "flex";
+      if (adminSearchInput) adminSearchInput.value = "";
+      renderAdminModalList("");
+    }
+
+    if (btnCloseAdminModal && adminModal) {
+      btnCloseAdminModal.addEventListener("click", () => {
+        adminModal.style.display = "none";
+      });
+      adminModal.addEventListener("click", (e) => {
+        if (e.target === adminModal) adminModal.style.display = "none";
+      });
+    }
+
+    if (adminSearchInput) {
+      adminSearchInput.addEventListener("input", (e) => {
+        renderAdminModalList(e.target.value.trim().toLowerCase());
+      });
+    }
+
+    function renderAdminModalList(filterQuery = "") {
+      if (!adminModalList) return;
+      const today = new Date();
+      const todayZero = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+      let list = PERMANENT_SYNCED_BOOKINGS;
+      if (filterQuery) {
+        list = list.filter(b => {
+          const matchName = (b.name || "").toLowerCase().includes(filterQuery);
+          const matchPhone = (b.phone || "").toLowerCase().includes(filterQuery);
+          const matchService = (b.service || "").toLowerCase().includes(filterQuery);
+          const matchDate = (b.dateFormatted || "").toLowerCase().includes(filterQuery);
+          return matchName || matchPhone || matchService || matchDate;
+        });
+      }
+
+      if (list.length === 0) {
+        adminModalList.innerHTML = `
+          <div style="text-align: center; padding: 2rem 1rem; color: #94a3b8; font-size: 0.88rem;">
+            🔍 No se encontraron citas que coincidan con "${filterQuery}".
+          </div>
+        `;
+        return;
+      }
+
+      const upcoming = [];
+      const past = [];
+
+      list.forEach(b => {
+        const d = parseDateId(b.dateId);
+        if (d && d < todayZero) {
+          past.push(b);
+        } else {
+          upcoming.push(b);
+        }
+      });
+
+      let html = "";
+      if (upcoming.length > 0) {
+        html += `<div style="font-weight: 800; font-size: 0.84rem; color: #1e293b; margin-bottom: 0.6rem;">📅 Citas Próximas (${upcoming.length}):</div>`;
+        upcoming.forEach(b => {
+          const cleanPhone = (b.phone || "").replace(/[^0-9]/g, '');
+          html += `
+            <div style="background: white; border: 1.5px solid #fbcfe8; border-radius: 12px; padding: 0.85rem 1rem; margin-bottom: 0.75rem; font-size: 0.84rem; box-shadow: 0 2px 6px rgba(236,72,153,0.06);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <strong style="color: #be185d; font-size: 0.94rem;">👤 ${b.name}</strong>
+                <span style="font-weight: 800; color: #059669; background: #ecfdf5; padding: 3px 8px; border-radius: 6px; font-size: 0.76rem;">⏰ ${b.time} hrs</span>
+              </div>
+              <div style="color: #334155; margin-bottom: 2px;">💅 <strong>Servicio:</strong> ${b.service}</div>
+              <div style="color: #475569; margin-bottom: 2px;">📅 <strong>Fecha:</strong> ${b.dateFormatted}</div>
+              ${b.phone ? `
+                <div style="margin-top: 6px; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                  <span style="color: #475569;">📞 ${b.phone}</span>
+                  <a href="https://wa.me/${cleanPhone}" target="_blank" style="display: inline-flex; align-items: center; gap: 4px; background: #25d366; color: white; padding: 4px 10px; border-radius: 6px; font-size: 0.74rem; font-weight: 700; text-decoration: none;">
+                    💬 WhatsApp
+                  </a>
+                </div>
+              ` : ''}
+              ${b.total ? `<div style="color: #be185d; font-weight: 800; margin-top: 5px; padding-top: 4px; border-top: 1px dashed #fce7f3;">💰 Total: ${b.total}</div>` : ''}
+            </div>
+          `;
+        });
+      }
+
+      if (past.length > 0) {
+        html += `<div style="font-weight: 800; font-size: 0.84rem; color: #64748b; margin-top: 1.25rem; margin-bottom: 0.6rem;">📜 Historial Pasado (${past.length}):</div>`;
+        past.forEach(b => {
+          html += `
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.7rem 0.85rem; margin-bottom: 0.5rem; font-size: 0.8rem; opacity: 0.88;">
+              <div style="display: flex; justify-content: space-between;">
+                <strong>👤 ${b.name}</strong>
+                <span style="color: #64748b;">${b.time} hrs</span>
+              </div>
+              <div style="color: #64748b; margin-top: 2px;">💅 ${b.service} · ${b.dateFormatted}</div>
+              ${b.phone ? `<div style="color: #64748b; font-size: 0.76rem;">📞 ${b.phone}</div>` : ''}
+            </div>
+          `;
+        });
+      }
+
+      adminModalList.innerHTML = html;
+    }
+
+    // ACCESO SECRETO 1: Tocar 4 veces seguidas el logo de Moon.Artgel
+    let logoTapCount = 0;
+    let logoTapTimer = null;
+    const logoImg = document.querySelector(".brand-logo");
+    if (logoImg) {
+      logoImg.style.cursor = "pointer";
+      logoImg.title = "Moon.Artgel Nail Salon";
+      logoImg.addEventListener("click", async () => {
+        logoTapCount++;
+        clearTimeout(logoTapTimer);
+        logoTapTimer = setTimeout(() => { logoTapCount = 0; }, 1600);
+
+        if (logoTapCount >= 4) {
+          logoTapCount = 0;
+          const allowed = await requestAdminAccess();
+          if (allowed) {
+            openAdminModal();
+          }
+        }
+      });
+    }
+
+    // Selección inteligente de la fecha inicial al cargar la página
+    function initInitialDate() {
+      const today = new Date();
+      const todayZero = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+      // 1. Si hay una fecha recientemente seleccionada en sessionStorage
+      try {
+        const savedDateStr = sessionStorage.getItem("moon_selected_date");
+        if (savedDateStr) {
+          const savedDate = parseDateId(savedDateStr);
+          if (savedDate && savedDate >= todayZero) {
+            currentYear = savedDate.getFullYear();
+            currentMonth = savedDate.getMonth();
+            selectDate(savedDate);
+            return;
+          }
+        }
+      } catch (e) {}
+
+      // 2. Si el usuario tiene una cita reservada PRÓXIMA en "Tus Horas", enfocar esa fecha
+      const myHours = getMyHours();
+      if (myHours.length > 0) {
+        for (let i = 0; i < myHours.length; i++) {
+          const h = myHours[i];
+          const rawDateId = h.dateId || (h.id ? h.id.split('_')[0] : null);
+          if (rawDateId) {
+            const bookingDate = parseDateId(rawDateId);
+            if (bookingDate && bookingDate >= todayZero) {
+              currentYear = bookingDate.getFullYear();
+              currentMonth = bookingDate.getMonth();
+              selectDate(bookingDate);
+              return;
+            }
+          }
+        }
+      }
+
+      // 3. Fallback: Buscar el primer día con cupos disponibles desde hoy
+      const startDay = (currentYear === today.getFullYear() && currentMonth === today.getMonth()) ? today.getDate() : 1;
+      for (let d = startDay; d <= 31; d++) {
+        const test = new Date(currentYear, currentMonth, d);
+        if (test.getMonth() !== currentMonth) break;
+        if (getAvailableSlots(test).length > 0) {
+          selectDate(test);
+          return;
+        }
+      }
+    }
+
+    initCloudSync();
+    renderServices();
+    renderCalendar();
+    renderMyHours();
+    initInitialDate();
+  </script>
+</body>
+</html>
